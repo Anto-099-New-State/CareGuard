@@ -1,0 +1,15 @@
+# Never upload secrets: env files, generated keys, Circle recovery file.
+**/.env
+**/.env.*
+!**/.env.example
+app/secrets
+app/circle-recovery
+
+# Not needed to build the web app.
+**/node_modules
+**/.next
+contracts/lib
+contracts/out
+contracts/cache
+contracts/broadcast
+supabase/tests/node_modules
