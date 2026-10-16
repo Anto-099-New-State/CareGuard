@@ -1,0 +1,11 @@
+{
+  "network": "mainnet",
+  "chainId": 5042,
+  "rpcUrl": "https://rpc.mainnet.arc.io",
+  "explorerUrl": "https://explorer.arc.io",
+  "usdc": "0x0000000000000000000000000000000000000000",
+  "eurc": "0x0000000000000000000000000000000000000000",
+  "contractAddress": "0x0000000000000000000000000000000000000000",
+  "deployBlock": 0,
+  "isTestnet": false
+}

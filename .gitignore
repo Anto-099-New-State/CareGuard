@@ -1,0 +1,11 @@
+node_modules/
+.next/
+out/
+.env
+.env*.local
+*.log
+.DS_Store
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/*/31337/
