@@ -1,16 +1,27 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import Groq from "groq-sdk";
 import { z } from "zod";
 import { config } from "../config";
 import type { ChargeJudge, JudgeInput, JudgeVerdict } from "./review";
 
-const MODEL = "claude-opus-5-5";
+// Supports strict JSON-schema output on Groq.
+const MODEL = process.env.GROQ_MODEL ?? "openai/gpt-oss-120b";
 
 const Verdict = z.object({
   verdict: z.enum(["pay", "escalate"]),
-  coveredAmount: z.string().describe("Covered part in USDC with two decimals, e.g. 220.00"),
-  reason: z.string().describe("One plain sentence. No patient details, diagnoses or charge descriptions."),
+  coveredAmount: z.string(),
+  reason: z.string().min(1),
 });
+
+const SCHEMA = {
+  type: "object",
+  properties: {
+    verdict: { type: "string", enum: ["pay", "escalate"] },
+    coveredAmount: { type: "string", description: "Covered part in USDC with two decimals, e.g. 220.00" },
+    reason: { type: "string", description: "One plain sentence. No patient details, diagnoses or charge descriptions." },
+  },
+  required: ["verdict", "coveredAmount", "reason"],
+  additionalProperties: false,
+};
 
 const SYSTEM = `You review medical charges for CareGuard, an escrow that pays a provider per charge from two payers: a coverer (insurer or employer) and the family.
 
@@ -20,25 +31,24 @@ Decide "pay" when nothing looks unusual, otherwise "escalate" so a human approve
 
 The reason is shown to the payers, so write one short plain sentence that refers to the price item code only. Never repeat the description, patient details or anything medical beyond the item label.`;
 
-/** Claude judge for charges that pass every deterministic check. Returns null when no API key is set. */
-export function claudeJudge(): ChargeJudge | null {
-  if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) return null;
-  const client = new Anthropic();
+/** Groq judge for charges that pass every deterministic check. Returns null when GROQ_API_KEY isn't set. */
+export function groqJudge(): ChargeJudge | null {
+  if (!process.env.GROQ_API_KEY) return null;
+  const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
   return async (input: JudgeInput): Promise<JudgeVerdict> => {
-    const response = await client.beta.messages.parse({
+    const response = await client.chat.completions.create({
       model: MODEL,
-      max_tokens: 4000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      output_config: { effort: "high", format: zodOutputFormat(Verdict) },
-      system: SYSTEM,
-      messages: [{ role: "user", content: JSON.stringify(input, null, 2) }],
+      messages: [
+        { role: "system", content: SYSTEM },
+        { role: "user", content: JSON.stringify(input, null, 2) },
+      ],
+      response_format: { type: "json_schema", json_schema: { name: "charge_verdict", strict: true, schema: SCHEMA } },
     });
-
-    if (response.stop_reason === "refusal") throw new Error("Charge review was declined by the model.");
-    if (!response.parsed_output) throw new Error("Charge review returned no verdict.");
-    return response.parsed_output;
+    const content = response.choices[0]?.message?.content;
+    if (!content) throw new Error("Charge review returned no verdict.");
+    // Validate even under strict mode: anything off-schema throws, and the caller escalates.
+    return Verdict.parse(JSON.parse(content));
   };
 }
 
@@ -51,5 +61,5 @@ export function chargeJudge(): ChargeJudge | null {
     if (config.network !== "local") throw new Error("AGENT_JUDGE=stub is only allowed on the local network.");
     return async (input) => ({ verdict: "pay", coveredAmount: input.proposedCovered, reason: "Local stub review." });
   }
-  return claudeJudge();
+  return groqJudge();
 }

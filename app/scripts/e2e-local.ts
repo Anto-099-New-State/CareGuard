@@ -255,7 +255,7 @@ async function main() {
 
     // The indexer catches the cache up afterwards.
     const { execSync } = await import("node:child_process");
-    execSync("npx tsx --env-file=.env.local jobs/indexer.ts", { stdio: "pipe" });
+    execSync("npm run indexer", { stdio: "pipe" });
     const { data } = await admin.from("episodes").select("status, coverer_balance, family_balance").eq("id", epId).single();
     assert.deepEqual([data!.status, Number(data!.coverer_balance), Number(data!.family_balance)], ["expired", 0, 0]);
   });
