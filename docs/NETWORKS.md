@@ -6,16 +6,16 @@ The same contract and app run on both. Only configuration changes. Testnet is wh
 
 | | Arc Testnet | Arc Mainnet |
 |---|---|---|
-| Chain ID | `5042002` | `5042` (confirm, see below) |
-| RPC | `https://rpc.testnet.arc.network` | `https://rpc.mainnet.arc.io` (confirm) |
-| Explorer | `https://testnet.arcscan.app` | `explorer.arc.io` (confirm) |
+| Chain ID | `5042002` | `5042` (confirmed with `eth_chainId`, 2026-10-17) |
+| RPC | `https://rpc.testnet.arc.io` | `https://rpc.mainnet.arc.io` |
+| Explorer | `https://explorer.testnet.arc.io` | `https://explorer.arc.io` |
 | Gas token | USDC | USDC |
-| USDC (ERC-20, 6 decimals) | `0x3600000000000000000000000000000000000000` | check Arc docs |
-| EURC (ERC-20, 6 decimals) | `0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a` | check Arc docs |
+| USDC (ERC-20, 6 decimals) | `0x3600000000000000000000000000000000000000` | `0x3600000000000000000000000000000000000000` |
+| EURC (ERC-20, 6 decimals) | `0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a` | `0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1` |
 | Getting funds | Free from `https://faucet.circle.com` (Arc Testnet) | Bridge real USDC to Arc (CCTP / Bridge Kit) |
 | Money at risk | None | Real, so keep amounts tiny |
 
-**Do this first (tonight):** send `eth_chainId` to the mainnet RPC (expect `0x13b2` = 5042), confirm the explorer, and confirm we can get a few USDC onto Arc mainnet. Wrong chain IDs for Arc circulate online; trust only what `eth_chainId` returns.
+**Checked 2026-10-17:** `eth_chainId` on the mainnet RPC returns `0x13b2` (5042), both explorers respond, and `symbol()`/`decimals()` on both token addresses return USDC/EURC with 6 decimals. The old `rpc.testnet.arc.network` host no longer resolves; Arc moved to `arc.io`. Still to do: confirm we can get a few USDC onto Arc mainnet.
 
 ## What changes between networks
 
@@ -38,8 +38,8 @@ Never reuse a testnet key on mainnet.
 {
   "network": "testnet",
   "chainId": 5042002,
-  "rpcUrl": "https://rpc.testnet.arc.network",
-  "explorerUrl": "https://testnet.arcscan.app",
+  "rpcUrl": "https://rpc.testnet.arc.io",
+  "explorerUrl": "https://explorer.testnet.arc.io",
   "usdc": "0x3600000000000000000000000000000000000000",
   "eurc": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
   "contractAddress": "0x…",

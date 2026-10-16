@@ -3,8 +3,8 @@
   "chainId": 5042,
   "rpcUrl": "https://rpc.mainnet.arc.io",
   "explorerUrl": "https://explorer.arc.io",
-  "usdc": "0x0000000000000000000000000000000000000000",
-  "eurc": "0x0000000000000000000000000000000000000000",
+  "usdc": "0x3600000000000000000000000000000000000000",
+  "eurc": "0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1",
   "contractAddress": "0x0000000000000000000000000000000000000000",
   "deployBlock": 0,
   "isTestnet": false
