@@ -44,3 +44,6 @@ next-env.d.ts
 
 # Circle entity secret recovery file: keep it safe, never commit it
 circle-recovery/
+
+# Testnet-only keys generated locally (approver, deployer). Never commit.
+secrets/
