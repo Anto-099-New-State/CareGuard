@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { config } from "../config";
 import type { ChargeJudge, JudgeInput, JudgeVerdict } from "./review";
 
 const MODEL = "claude-opus-5-5";
@@ -39,4 +40,16 @@ export function claudeJudge(): ChargeJudge | null {
     if (!response.parsed_output) throw new Error("Charge review returned no verdict.");
     return response.parsed_output;
   };
+}
+
+/**
+ * The judge the agent uses. AGENT_JUDGE=stub accepts every charge that passed the deterministic checks;
+ * it exists for local end-to-end runs only and refuses to load on testnet or mainnet.
+ */
+export function chargeJudge(): ChargeJudge | null {
+  if (process.env.AGENT_JUDGE === "stub") {
+    if (config.network !== "local") throw new Error("AGENT_JUDGE=stub is only allowed on the local network.");
+    return async (input) => ({ verdict: "pay", coveredAmount: input.proposedCovered, reason: "Local stub review." });
+  }
+  return claudeJudge();
 }

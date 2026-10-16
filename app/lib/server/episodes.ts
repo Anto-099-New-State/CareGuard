@@ -1,5 +1,5 @@
 import { parseEventLogs, type Address, type Hash, type Hex } from "viem";
-import { claudeJudge } from "../agent/llm";
+import { chargeJudge } from "../agent/llm";
 import { marginCallsNeeded, reviewCharge, type EpisodeState, type PastCharge } from "../agent/review";
 import { sizeGuarantee, type QuoteLine } from "../agent/sizing";
 import { publicClient } from "../chains";
@@ -61,6 +61,11 @@ const signerOf = (row: { wallet_address: string | null; wallet_id: string | null
   if (!row.wallet_address) throw new UserError("This party has no wallet yet.", 409);
   return { address: row.wallet_address as Address, walletId: row.wallet_id };
 };
+
+/** Block time, which is what the contract compares expiry and deadlines against. */
+async function chainNow(): Promise<bigint> {
+  return (await publicClient.getBlock()).timestamp;
+}
 
 /** The contract is the truth: read the episode from the chain. */
 async function onchain(id: bigint) {
@@ -300,7 +305,7 @@ export async function addPayers(provider: ProviderRow, episodeId: string, input:
     rows[role] = row;
   }
 
-  const expiresAt = BigInt(Math.floor(Date.now() / 1000) + settings.expirySeconds);
+  const expiresAt = (await chainNow()) + BigInt(settings.expirySeconds);
   const hash = await tracked({ episodeId: ep.id, kind: "create" }, () =>
     send(agentSigner(), {
       ...careGuard,
@@ -438,7 +443,7 @@ export async function processCharge(chargeId: string) {
   const { ep, state, priceItem } = await chargeContext(charge);
   const amount = big(charge.amount_usdc);
 
-  const outcome = await reviewCharge(state, { number: charge.number, priceItem, quantity: charge.quantity, amount, description: charge.description }, claudeJudge());
+  const outcome = await reviewCharge(state, { number: charge.number, priceItem, quantity: charge.quantity, amount, description: charge.description }, chargeJudge());
   const inputs = { charge: { number: charge.number, priceItemId: charge.price_item_id, quantity: charge.quantity, amount, description: charge.description }, state, outcome };
 
   if (outcome.decision === "escalate") {
@@ -524,7 +529,7 @@ async function approvalRequest(charge: ChargeRow, ep: EpisodeRow) {
   const provider = await providerOf(ep);
   const amount = big(charge.amount_usdc);
   const covered = big(charge.covered_usdc);
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + settings.approvalTtlSeconds);
+  const deadline = (await chainNow()) + BigInt(settings.approvalTtlSeconds);
   return {
     domain: eip712Domain,
     types: approveChargeTypes,
@@ -602,7 +607,7 @@ export async function discharge(provider: ProviderRow, episodeId: string) {
 export async function refundExpired(episodeId: string) {
   const ep = await loadEpisode(episodeId);
   const chain = await onchain(contractId(ep));
-  if (BigInt(Math.floor(Date.now() / 1000)) < BigInt(chain.expiresAt)) {
+  if ((await chainNow()) < BigInt(chain.expiresAt)) {
     throw new UserError(`This episode doesn't expire until ${new Date(Number(chain.expiresAt) * 1000).toUTCString()}.`, 409);
   }
   const txHash = await tracked({ episodeId: ep.id, kind: "refund", amount: chain.covererBalance + chain.familyBalance, currency: "USDC" }, () =>
