@@ -20,32 +20,32 @@ Use a mock ERC-20 with 6 decimals for USDC, `vm.sign` for approver signatures an
 ### Must pass
 
 **Funding**
-- [ ] Coverer and family can fund; balances update; `Funded` emitted
-- [ ] A stranger can't fund
-- [ ] Funding a closed or expired episode reverts
-- [ ] Funding during MarginCall sets status back to Active
+- [x] Coverer and family can fund; balances update; `Funded` emitted
+- [x] A stranger can't fund
+- [x] Funding a closed or expired episode reverts
+- [x] Funding during MarginCall sets status back to Active
 
 **Charges**
-- [ ] Charge under cap pays the provider; covered part from coverer, rest from family
-- [ ] Only the agent can pay a charge
-- [ ] Charge above the cap reverts without a signature
-- [ ] `coveredAmount > amount` reverts
-- [ ] Not enough in either balance reverts, and nothing moves
-- [ ] Same charge hash twice reverts
-- [ ] Charge after expiry reverts
+- [x] Charge under cap pays the provider; covered part from coverer, rest from family
+- [x] Only the agent can pay a charge
+- [x] Charge above the cap reverts without a signature
+- [x] `coveredAmount > amount` reverts
+- [x] Not enough in either balance reverts, and nothing moves
+- [x] Same charge hash twice reverts
+- [x] Charge after expiry reverts
 
 **Approvals**
-- [ ] Valid approver signature pays an over-cap charge
-- [ ] Signature from anyone else reverts
-- [ ] Changing any signed field (amount, covered, charge hash, episode) reverts
-- [ ] Expired deadline reverts
-- [ ] Signature for another chain ID or contract reverts
+- [x] Valid approver signature pays an over-cap charge
+- [x] Signature from anyone else reverts
+- [x] Changing any signed field (amount, covered, charge hash, episode) reverts
+- [x] Expired deadline reverts
+- [x] Signature for another chain ID or contract reverts
 
 **Refunds**
-- [ ] Discharge returns each payer exactly their remaining balance
-- [ ] Only the agent can discharge
-- [ ] `refundExpired` one second before expiry reverts; at expiry, called by a stranger, refunds both payers
-- [ ] Nothing can be paid or refunded after Closed or Expired
+- [x] Discharge returns each payer exactly their remaining balance
+- [x] Only the agent can discharge
+- [x] `refundExpired` one second before expiry reverts; at expiry, called by a stranger, refunds both payers
+- [x] Nothing can be paid or refunded after Closed or Expired
 
 ### Fuzz
 Random funding, charges and covered splits never pay out more than came in, and never take from one payer more than they funded.
@@ -65,7 +65,7 @@ If this breaks, money was created or lost. Run `forge coverage`; cover every bra
 
 1. Start `anvil`, deploy a mock USDC and the contract, write `config/local.json`.
 2. Run the app and agent against it with your own test accounts.
-3. Walk scenarios A–E by hand; use `evm_increaseTime` for expiry.
+3. Run `npm run e2e` in `app/` (scripts/e2e-local.ts walks scenarios A–E through the API and uses `evm_increaseTime` for expiry), or walk them by hand.
 
 ---
 
@@ -125,11 +125,11 @@ Charges that eat most of the funds. **Expect:** `MarginCall` to the right payer 
 
 | Scenario | Local | Testnet tx links | Mainnet tx links | Passed by |
 |---|---|---|---|---|
-| A. Happy path | ☐ | | | |
-| B. Escalation | ☐ | | n/a | |
-| C. Margin call | ☐ | | n/a | |
-| D. Agent offline | ☐ | | | |
-| E. Abuse | ☐ | | n/a | |
+| A. Happy path | ☑ | | | Local: `npm run e2e`, 2026-10-17 |
+| B. Escalation | ☑ | | n/a | Local: `npm run e2e`, 2026-10-17 |
+| C. Margin call | ☑ | | n/a | Local: `npm run e2e`, 2026-10-17 |
+| D. Agent offline | ☑ | | | Local: `npm run e2e`, 2026-10-17 |
+| E. Abuse | ☑ | | n/a | Local: `npm run e2e`, 2026-10-17 |
 
 ## Bug report template
 

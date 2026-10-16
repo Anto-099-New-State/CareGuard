@@ -200,7 +200,8 @@ careguard/
 │   ├── lib/chains.ts     # Arc testnet + mainnet (shared)
 │   ├── lib/contract.ts   # address + ABI per network (shared)
 │   └── lib/eip712.ts     # ApproveCharge type (shared contract!)
-├── jobs/indexer.ts       # (Clatson)
+│   ├── lib/server/       # API services: chain writer, wallets, swap, db, auth (Clatson)
+│   ├── jobs/indexer.ts   # (Clatson) lives in app/ to share the server code
 ├── supabase/migrations/  # (Clatson)
 ├── config/testnet.json, mainnet.json
 └── docs/                 # these files
