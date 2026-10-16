@@ -19,7 +19,8 @@ export async function swapEurcToUsdc(payer: Signer, amountIn: bigint): Promise<S
     tokenIn: "EURC",
     tokenOut: "USDC",
     amountIn: formatAmount(amountIn).replace(/,/g, ""),
-    config: process.env.KIT_KEY ? { apiKey: process.env.KIT_KEY } : undefined,
+    // Kit keys are legacy; App Kit now takes the Circle API key (optional, raises the shared rate limit).
+    config: { apiKey: process.env.KIT_KEY ?? need("CIRCLE_API_KEY") },
   } as unknown as SwapParams;
 
   let result: Awaited<ReturnType<AppKit["swap"]>>;
