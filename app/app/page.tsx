@@ -57,7 +57,7 @@ export default function Landing() {
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            <a className="hover-link text-sm font-semibold" href="#signin">Sign in</a>
+            <Link className="hover-link text-sm font-semibold" href="/signin">Sign in</Link>
             <Link href="/dashboard" className={`${pillBtn} px-6 py-[13px] text-sm`}>Launch app</Link>
           </div>
         </nav>
