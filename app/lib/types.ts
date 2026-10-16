@@ -31,6 +31,7 @@ export type Decision = {
 
 export type MarginCall = {
   episodeId: string;
+  episodeLabel: string;
   payerRole: PayerRole;
   amount: bigint;
   reason: string;
