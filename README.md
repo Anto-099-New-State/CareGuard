@@ -7,19 +7,39 @@ Start with [docs/README.md](docs/README.md) for the product, then [docs/ARCHITEC
 ## Layout
 
 ```text
-app/        Next.js frontend and API routes
+contracts/  Foundry: CareGuardEpisode.sol, tests, deploy scripts
+supabase/   schema + row-level security (migrations/), PGlite RLS test (tests/)
+app/        Next.js: pages, API routes (app/api), agent (lib/agent), services (lib/server), indexer (jobs/)
 config/     testnet.json, mainnet.json (one shape for both networks)
 docs/       product, flow, architecture, design and testing docs
-contracts/  Foundry project (not added yet)
 ```
 
-## Run the app
+## Tests
 
 ```bash
-cd app
-cp .env.example .env.local   # NEXT_PUBLIC_NETWORK=testnet by default
-npm install
-npm run dev                  # http://localhost:3000
+cd contracts && forge test            # unit, fuzz, invariant (49 tests)
+cd supabase/tests && npm i && npm test # migration + RLS in PGlite
+cd app && npm test                    # agent sizing/review and money (vitest)
 ```
 
-Pages so far: `/` (landing) and `/dashboard` (provider dashboard). The dashboard shows empty states until the API exists; the app never shows sample data.
+## Run everything locally (TESTING.md layer 2)
+
+Needs Foundry, Docker and Node 22.
+
+```bash
+anvil                                                    # terminal 1
+cd contracts && forge script script/DeployLocal.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
+npx supabase start                                       # repo root; prints the local keys
+cd app && cp .env.example .env.local                     # set NEXT_PUBLIC_NETWORK=local, the Supabase keys, AGENT_JUDGE=stub
+npm install && npm run dev                               # terminal 2
+npm run e2e                                              # terminal 3: scenarios A–E
+npm run indexer -- --watch                               # optional: follow contract events
+```
+
+## Testnet
+
+1. Create a Circle wallet set and an agent wallet; fund the agent with a little testnet USDC for gas (https://faucet.circle.com).
+2. Deploy: `cd contracts && USDC_ADDRESS=0x3600000000000000000000000000000000000000 AGENT_ADDRESS=… APPROVER_ADDRESS=… forge script script/Deploy.s.sol --rpc-url arc_testnet --broadcast --account <deployer>`.
+3. Put the address and deploy block in `config/testnet.json`, push the migration to the hosted Supabase project, and fill `app/.env.local` from `.env.example`.
+
+Payer and provider wallets are Circle developer-controlled wallets we create for them, so they are custodial in this version.
