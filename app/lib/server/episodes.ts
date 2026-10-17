@@ -226,9 +226,6 @@ export type NewEpisode = {
 export async function createEpisode(provider: ProviderRow, input: NewEpisode) {
   if (!input.patientLabel.trim()) throw new UserError("Enter how to refer to the patient, e.g. “Maria L.”.");
   if (!isAddress(input.patientWallet.trim())) throw new UserError("Enter the patient's wallet address (0x followed by 40 characters).");
-  if (provider.wallet_address && input.patientWallet.trim().toLowerCase() === provider.wallet_address.toLowerCase()) {
-    throw new UserError("The patient's wallet can't be the hospital's own wallet.");
-  }
   const items = must(
     await db().from("price_items").select("*").eq("provider_id", provider.id).in("id", input.lines.map((l) => l.priceItemId)),
   ) as PriceItemRow[];
