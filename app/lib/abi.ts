@@ -120,6 +120,13 @@ export const careGuardAbi = [
   },
   {
     "type": "function",
+    "name": "claimRefund",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "createEpisode",
     "inputs": [
       {
@@ -488,6 +495,25 @@ export const careGuardAbi = [
   },
   {
     "type": "function",
+    "name": "pendingRefunds",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "raiseMarginCall",
     "inputs": [
       {
@@ -539,6 +565,19 @@ export const careGuardAbi = [
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "totalPendingRefunds",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -767,6 +806,50 @@ export const careGuardAbi = [
   },
   {
     "type": "event",
+    "name": "RefundClaimed",
+    "inputs": [
+      {
+        "name": "payer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RefundDeferred",
+    "inputs": [
+      {
+        "name": "episodeId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "payer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Refunded",
     "inputs": [
       {
@@ -911,6 +994,11 @@ export const careGuardAbi = [
   {
     "type": "error",
     "name": "NotYetExpired",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NothingToClaim",
     "inputs": []
   },
   {

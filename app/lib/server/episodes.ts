@@ -673,3 +673,33 @@ export async function traction() {
   };
   return { testnet: byNetwork("testnet"), mainnet: byNetwork("mainnet") };
 }
+
+// ------------------------------------------------------------------ deferred refunds
+
+/** Refunds the contract couldn't send automatically, per wallet the caller pays from. */
+export async function pendingRefundsFor(caller: Caller) {
+  const rows = (must(await db().from("payers").select("id, wallet_id, wallet_address").eq("user_id", caller.userId)) as Pick<PayerRow, "id" | "wallet_id" | "wallet_address">[]).filter(
+    (r) => r.wallet_address,
+  );
+  const wallets = [...new Map(rows.map((r) => [r.wallet_address!.toLowerCase(), r])).values()];
+  return Promise.all(
+    wallets.map(async (r) => ({
+      signer: signerOf(r),
+      amount: await publicClient.readContract({ ...careGuard, functionName: "pendingRefunds", args: [r.wallet_address as Address] }),
+    })),
+  );
+}
+
+/** Claims every deferred refund the caller has. Money can only go back to the payer's own wallet. */
+export async function claimRefunds(caller: Caller) {
+  const pending = (await pendingRefundsFor(caller)).filter((p) => p.amount > 0n);
+  if (pending.length === 0) throw new UserError("There's no refund waiting for you.", 409);
+  const claimed: { amount: bigint; txHash: Hash }[] = [];
+  for (const p of pending) {
+    const txHash = await tracked({ episodeId: null, kind: "refund", amount: p.amount, currency: "USDC" }, () =>
+      send(p.signer, { ...careGuard, functionName: "claimRefund", args: [] }),
+    );
+    claimed.push({ amount: p.amount, txHash });
+  }
+  return { claimed };
+}

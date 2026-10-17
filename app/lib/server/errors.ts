@@ -30,6 +30,7 @@ const plain: Record<string, (args: readonly unknown[]) => string> = {
     `Family balance is ${formatAmount((needed as bigint) - (available as bigint))} USDC short of this charge.`,
   ApprovalExpired: () => "The approval has expired. Ask the approver to sign again.",
   InvalidApproval: () => "The approval signature doesn't match this charge.",
+  NothingToClaim: () => "There's no refund waiting for this wallet.",
   ERC20InsufficientBalance: () => "The wallet doesn't hold enough USDC.",
   ERC20InsufficientAllowance: () => "The contract isn't approved to move this much USDC.",
 };
