@@ -76,5 +76,6 @@ export async function quoteEurcFor(target: bigint): Promise<FxQuote> {
 export async function convertEurc(amountIn: bigint): Promise<{ txHash: Hash; amountOut?: bigint }> {
   const k = await kit();
   const r = await k.swap(k.context, k.params(amountIn));
-  return { txHash: r.txHash as Hash, amountOut: r.amountOut ? BigInt(r.amountOut) : undefined };
+  // amountOut comes back as a decimal string ("0.379775"), not base units.
+  return { txHash: r.txHash as Hash, amountOut: r.amountOut ? units(r.amountOut) : undefined };
 }
