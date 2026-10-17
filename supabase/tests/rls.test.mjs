@@ -35,9 +35,11 @@ await db.exec(`
 
 async function as(user, sql) {
   await db.exec(`reset role; select set_config('request.jwt.claim.sub', '${user}', false); set role authenticated;`);
-  const r = await db.query(sql);
-  await db.exec(`reset role;`);
-  return r.rows;
+  try {
+    return (await db.query(sql)).rows;
+  } finally {
+    await db.exec(`reset role;`); // also after a refused query, so later setup runs as the owner again
+  }
 }
 let fails = 0;
 const check = (name, ok) => { console.log(`${ok ? "PASS" : "FAIL"} ${name}`); if (!ok) fails++; };
@@ -60,4 +62,19 @@ let writeBlocked = false;
 try { await as(u.prov, "update episodes set paid_total = 1"); } catch { writeBlocked = true; }
 const after = await db.query("select paid_total from episodes where paid_total = 1");
 check("signed-in users cannot write", writeBlocked || after.rows.length === 0);
+
+// Wallet-only sign-in: a payer row with no user yet is matched by the signed-in wallet.
+const walletPayer = "00000000-0000-0000-0000-000000000006";
+await db.exec(`
+  insert into auth.users values ('${walletPayer}');
+  insert into profiles (user_id, wallet_address, role, display_name) values ('${walletPayer}', '0x00000000000000000000000000000000000000aa', 'patient', 'Wallet Payer');
+  insert into payers (episode_id, wallet_address, display_name, role) values ('30000000-0000-0000-0000-000000000001', '0x00000000000000000000000000000000000000AA', 'Insurer', 'coverer');
+  insert into quote_items (episode_id, price_item_id, quantity) values ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 2);
+`);
+check("wallet-matched payer sees the episode", (await as(walletPayer, "select id from episodes")).length === 1);
+check("wallet-matched payer sees the quote", (await as(walletPayer, "select quantity from quote_items")).length === 1);
+check("wallet-matched payer still can't read charges table", (await as(walletPayer, "select * from charges")).length === 0);
+check("wallet-matched payer reads charges via view", (await as(walletPayer, "select * from payer_charges")).length === 1);
+check("profiles: only your own", (await as(walletPayer, "select * from profiles")).length === 1 && (await as(u.prov, "select * from profiles")).length === 0);
+check("stranger still sees no quote", (await as(u.nobody, "select * from quote_items")).length === 0);
 process.exit(fails ? 1 : 0);
