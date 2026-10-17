@@ -77,6 +77,8 @@ export default async function Pay({ params }: { params: Promise<{ id: string }> 
   const wallet = me.wallet_address as Address | null;
   const [usdc, pending] = await Promise.all([wallet ? balance(config.usdc, wallet) : null, pendingRefund(wallet)]);
   const charges = view.charges as unknown as PayerCharge[];
+  const quote = (view.quote ?? []) as { priceItemId: string; code: string; label: string; unitPrice: bigint; quantity: number }[];
+  const coveredCodes = (ep.covered_codes ?? []) as string[];
   const fmtDate = (d: Date) => d.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   const suggested = marginCall ? toUnits(marginCall.amount) : remaining;
 
@@ -178,6 +180,38 @@ export default async function Pay({ params }: { params: Promise<{ id: string }> 
               Holds <Money value={usdc ?? 0n} /> on Arc {config.network}. Refunds come back to this same wallet.
             </span>
           </section>
+        )}
+
+        {quote.length > 0 && (
+          <details className="group rounded-2xl border border-line bg-card" open={funded === 0n}>
+            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-bold">
+              Quote from {clinic} <span className="text-muted group-open:rotate-180">▾</span>
+            </summary>
+            <div className="border-t border-line px-4 py-3">
+              <ul className="m-0 flex list-none flex-col divide-y divide-line p-0">
+                {quote.map((q) => (
+                  <li key={q.priceItemId} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate font-semibold">{q.label}</span>
+                      <span className="text-xs text-muted">
+                        {q.quantity} × <Money value={q.unitPrice} />
+                        {coveredCodes.includes(q.code) ? " · covered" : ""}
+                      </span>
+                    </span>
+                    <Money value={q.unitPrice * BigInt(q.quantity)} className="flex-none font-semibold" />
+                  </li>
+                ))}
+              </ul>
+              <dl className="m-0 mt-2 flex flex-col gap-1.5 border-t border-line pt-3 text-sm">
+                <div className="flex justify-between"><dt className="text-muted">Quote</dt><dd className="m-0"><Money value={ep.quote_usdc} /></dd></div>
+                <div className="flex justify-between"><dt className="text-muted">Guarantee (quote + {Number(ep.contingency_pct)}% contingency)</dt><dd className="m-0"><Money value={ep.guarantee_usdc} /></dd></div>
+                <div className="flex justify-between font-semibold"><dt>Your share</dt><dd className="m-0"><Money value={owed} /></dd></div>
+              </dl>
+              <p className="m-0 mt-2 text-xs leading-relaxed text-muted">
+                These are the hospital&apos;s own prices. The agent only pays charges that match them; anything else needs a human&apos;s signature first.
+              </p>
+            </div>
+          </details>
         )}
 
         <details className="group rounded-2xl border border-line bg-card" open={charges.length > 0}>

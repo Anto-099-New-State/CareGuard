@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { createClient } from "@supabase/supabase-js";
 import { createPublicClient, createTestClient, createWalletClient, http, type Hex } from "viem";
 import { foundry } from "viem/chains";
+import { createSiweMessage, generateSiweNonce } from "viem/siwe";
 import { careGuardAbi, erc20Abi } from "../lib/contract";
 import { config } from "../lib/config";
 import { ANVIL, anvilAccount } from "../lib/server/chain";
@@ -31,13 +32,32 @@ const usdcOf = (who: number) => pub.readContract({ address: config.usdc, abi: er
 
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-async function user(email: string): Promise<{ id: string; token: string }> {
-  const password = "local-e2e-password";
-  const created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-  if (created.error && !/already/i.test(created.error.message)) throw created.error;
-  const { data, error } = await anon.auth.signInWithPassword({ email, password });
+/** Signs in with Sign-In with Ethereum using an anvil account, exactly as the browser does with a wallet. */
+async function user(index: number): Promise<{ id: string; token: string; address: `0x${string}` }> {
+  const account = anvilAccount(index);
+  const message = createSiweMessage({
+    domain: new URL(BASE).host,
+    address: account.address,
+    statement: "Sign in to CareGuard.",
+    uri: BASE,
+    version: "1",
+    chainId: config.chainId,
+    nonce: generateSiweNonce(),
+    issuedAt: new Date(),
+  });
+  const signature = await account.signMessage({ message });
+  const { data, error } = await anon.auth.signInWithWeb3({ chain: "ethereum", message, signature });
   if (error) throw error;
-  return { id: data.user.id, token: data.session.access_token };
+  return { id: data.user!.id, token: data.session!.access_token, address: account.address };
+}
+
+/** The payer funds from their own wallet (approve + fund), then reports the transaction to the API. */
+async function fundFrom(index: number, token: string, epId: string, contractId: bigint, amount: bigint) {
+  const wallet = createWalletClient({ account: anvilAccount(index), chain, transport: http(config.rpcUrl) });
+  await pub.waitForTransactionReceipt({ hash: await wallet.writeContract({ address: config.usdc, abi: erc20Abi, functionName: "approve", args: [cg.address, amount] }) });
+  const hash = await wallet.writeContract({ ...cg, functionName: "fund", args: [contractId, amount] });
+  await pub.waitForTransactionReceipt({ hash });
+  return okApi(token, "POST", `/api/episodes/${epId}/fund`, { txHash: hash });
 }
 
 async function api(token: string | null, method: string, path: string, body?: unknown): Promise<{ status: number; json: Json }> {
@@ -71,13 +91,14 @@ const big = (v: unknown) => BigInt(String(v));
 const usd = (n: number) => BigInt(Math.round(n * 1e6));
 
 async function main() {
-  const provider = await user("provider@e2e.local");
-  const coverer = await user("coverer@e2e.local");
-  const family = await user("family@e2e.local");
-  const approver = await user("approver@e2e.local");
-  await admin.from("approvers").upsert({ user_id: approver.id, wallet_address: anvilAccount(ANVIL.approver).address });
+  const provider = await user(ANVIL.provider);
+  const coverer = await user(ANVIL.coverer);
+  const family = await user(ANVIL.family);
+  const approver = await user(ANVIL.approver); // recognised as approver because its key is the contract's approver
 
-  await okApi(provider.token, "POST", "/api/provider", { name: "E2E Test Clinic" });
+  await okApi(provider.token, "POST", "/api/profile", { role: "provider", name: "E2E Test Clinic" });
+  await okApi(coverer.token, "POST", "/api/profile", { role: "patient", name: "Test Insurer" });
+  await okApi(family.token, "POST", "/api/profile", { role: "patient", name: "Test Family" });
   const items = (await okApi(provider.token, "POST", "/api/price-list", {
     items: [
       { code: "CON-01", label: "Consultation", unitPrice: "80.00" },
@@ -105,14 +126,14 @@ async function main() {
     });
     const epId = created.episode.id as string;
     const withPayers = await okApi(provider.token, "POST", `/api/episodes/${epId}/payers`, {
-      coverer: { email: "coverer@e2e.local", name: "Test Insurer", currency: "USDC" },
-      family: { email: "family@e2e.local", name: "Test Family", currency: "USDC" },
+      coverer: { wallet: coverer.address, name: "Test Insurer" },
+      family: { wallet: family.address, name: "Test Family" },
     });
     const owed = { coverer: big(withPayers.payers.coverer.owed_usdc), family: big(withPayers.payers.family.owed_usdc) };
-    const fmt = (v: bigint) => (Number(v) / 1e6).toFixed(2);
-    if (opts.fundCoverer !== "0") await okApi(coverer.token, "POST", `/api/episodes/${epId}/fund`, { amount: opts.fundCoverer ?? fmt(owed.coverer) });
-    if (opts.fundFamily !== "0") await okApi(family.token, "POST", `/api/episodes/${epId}/fund`, { amount: opts.fundFamily ?? fmt(owed.family) });
-    return { epId, contractId: BigInt(withPayers.episode.contract_episode_id), created, owed };
+    const contractId = BigInt(withPayers.episode.contract_episode_id);
+    if (opts.fundCoverer !== "0") await fundFrom(ANVIL.coverer, coverer.token, epId, contractId, opts.fundCoverer ? usd(Number(opts.fundCoverer)) : owed.coverer);
+    if (opts.fundFamily !== "0") await fundFrom(ANVIL.family, family.token, epId, contractId, opts.fundFamily ? usd(Number(opts.fundFamily)) : owed.family);
+    return { epId, contractId, created, owed };
   }
 
   const charge = (epId: string, body: Json) => okApi(provider.token, "POST", `/api/episodes/${epId}/charges`, body);
@@ -151,6 +172,7 @@ async function main() {
     assert.ok((payerView.charges as Json[]).every((c) => !("description" in c)), "no descriptions for payers");
     assert.ok((payerView.decisions as Json[]).every((d) => !("inputs" in d)), "no decision inputs for payers");
     assert.equal(payerView.episode.description, undefined);
+    assert.deepEqual((payerView.quote as Json[]).map((q) => q.label).sort(), ["Consultation", "Implant surgery", "X-ray"], "payers see the quoted items");
   });
 
   await scenario("B. Escalation: approve, then reject", async () => {
@@ -183,7 +205,7 @@ async function main() {
   });
 
   await scenario("C. Margin call, then top-up", async () => {
-    const { epId } = await episode({ capPct: 50, fundFamily: "10.00" });
+    const { epId, contractId } = await episode({ capPct: 50, fundFamily: "10.00" });
     const r = await charge(epId, { priceItemId: id("CON-01"), quantity: 1 });
     assert.equal(r.charge.status, "waiting");
     assert.equal(r.decision.reason, "Family balance is 70.00 USDC short of this charge. Charge waits for a top-up.");
@@ -192,7 +214,7 @@ async function main() {
     let view = await okApi(family.token, "GET", `/api/episodes/${epId}`);
     assert.equal(view.episode.status, "margin_call");
 
-    await okApi(family.token, "POST", `/api/episodes/${epId}/fund`, { amount: "100.00" });
+    await fundFrom(ANVIL.family, family.token, epId, contractId, usd(100));
     view = await okApi(provider.token, "GET", `/api/episodes/${epId}`);
     assert.equal((view.charges as Json[])[0].status, "paid", "waiting charge paid after the top-up");
   });
@@ -232,9 +254,13 @@ async function main() {
     assert.equal(offList.decision.reason, "Not on the provider's price list.");
 
     // A stranger can't read the episode or fund it.
-    const stranger = await user("stranger@e2e.local");
+    const stranger = await user(6);
     assert.equal((await api(stranger.token, "GET", `/api/episodes/${epId}`)).status, 404);
-    assert.equal((await api(stranger.token, "POST", `/api/episodes/${epId}/fund`, { amount: "1.00" })).status, 403);
+    assert.equal((await api(stranger.token, "POST", `/api/episodes/${epId}/fund`, { txHash: `0x${"ab".repeat(32)}` })).status, 403);
+    // A real funding transaction can't be replayed to count twice.
+    const fundTx = (await okApi(provider.token, "GET", `/api/episodes/${epId}`)).transactions.find((t: Json) => t.kind === "fund").tx_hash;
+    const replay = await okApi(family.token, "POST", `/api/episodes/${epId}/fund`, { txHash: fundTx });
+    assert.equal(replay.alreadyRecorded, true);
   });
 
   await scenario("D. Agent offline: payer refunds after expiry without our server", async () => {
