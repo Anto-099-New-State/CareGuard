@@ -14,7 +14,7 @@ import { formatMoney } from "@/lib/money";
 type Item = { id: string; code: string; label: string; unitPrice: string };
 type Line = { key: string; priceItemId: string; quantity: string };
 type Sizing = { quote: string; guarantee: string; perChargeCap: string; covererOwes: string; familyOwes: string; reason: string };
-type Payer = { email: string; name: string; currency: "USDC" | "EURC" };
+type Payer = { wallet: string; name: string };
 
 const newLine = (id = ""): Line => ({ key: crypto.randomUUID(), priceItemId: id, quantity: "1" });
 const qty = (q: string) => (/^\d+$/.test(q) ? Number(q) : 0);
@@ -29,8 +29,8 @@ export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: {
   const [internal, setInternal] = useState(false);
   const [created, setCreated] = useState<{ id: string; sizing: Sizing } | null>(null);
   const [payers, setPayers] = useState<{ coverer: Payer; family: Payer }>({
-    coverer: { email: "", name: "", currency: "USDC" },
-    family: { email: "", name: "", currency: "USDC" },
+    coverer: { wallet: "", name: "" },
+    family: { wallet: "", name: "" },
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -119,24 +119,29 @@ export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: {
         </Card>
 
         <Card title="Add the payers">
-          <p className="m-0 text-sm text-muted">Each payer gets a wallet and a link to their funding page. They sign in with this email.</p>
+          <p className="m-0 text-sm text-muted">Ask each payer for the wallet address they&apos;ll pay from. They sign in with that wallet to see the quote and fund their share.</p>
           <form onSubmit={addPayers} className="flex flex-col gap-5">
             {(["coverer", "family"] as const).map((role) => (
               <fieldset key={role} disabled={done || tx?.status === "pending"} className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 rounded-[12px] border border-line p-4">
                 <legend className="px-1 text-sm font-bold">{role === "coverer" ? "Coverer (insurer, employer or a relative paying covered items)" : "Family payer (everything else)"}</legend>
                 <Field label="Name" required value={payers[role].name} onChange={(e) => setPayers((p) => ({ ...p, [role]: { ...p[role], name: e.target.value } }))} />
-                <Field label="Email" type="email" required value={payers[role].email} onChange={(e) => setPayers((p) => ({ ...p, [role]: { ...p[role], email: e.target.value } }))} />
-                <Select label="Pays in" value={payers[role].currency} onChange={(e) => setPayers((p) => ({ ...p, [role]: { ...p[role], currency: e.target.value as Payer["currency"] } }))}>
-                  <option value="USDC">USDC</option>
-                  <option value="EURC">EURC (swapped to USDC)</option>
-                </Select>
+                <Field
+                  label="Wallet address"
+                  required
+                  placeholder="0x…"
+                  spellCheck={false}
+                  autoComplete="off"
+                  className="[&_input]:font-mono"
+                  value={payers[role].wallet}
+                  onChange={(e) => setPayers((p) => ({ ...p, [role]: { ...p[role], wallet: e.target.value.trim() } }))}
+                />
               </fieldset>
             ))}
             {tx && <TxStatus state={tx} label="Creating the episode onchain" />}
             {done ? (
               <div className="flex flex-wrap gap-3">
                 <ButtonLink href={`/provider/episodes/${created.id}`}>Open the episode</ButtonLink>
-                <span className="self-center text-sm text-muted">Share each payer&apos;s link: <code className="font-mono">/pay/{created.id}</code></span>
+                <span className="self-center text-sm text-muted">The payers see it as soon as they sign in with those wallets. Direct link: <code className="font-mono">/pay/{created.id}</code></span>
               </div>
             ) : (
               <Button type="submit" disabled={tx?.status === "pending"} className="self-start">

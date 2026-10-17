@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EpisodesTable } from "@/components/EpisodesTable";
 import { LiveRefresh } from "@/components/LiveRefresh";
-import { ProviderSetup } from "@/components/ProviderSetup";
-import { StatusPill } from "@/components/StatusPill";
+import { PatientHome } from "@/components/PatientHome";
 import { ButtonLink } from "@/components/ui/Button";
-import { Card, EmptyState } from "@/components/ui/Bits";
-import { Money, toUnits } from "@/components/ui/Money";
+import { Card } from "@/components/ui/Bits";
+import { Money } from "@/components/ui/Money";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { TxLink } from "@/components/ui/Tx";
 import { getDashboard, getPayerEpisodes } from "@/lib/data";
@@ -31,24 +30,18 @@ export default async function Dashboard() {
   const payerEpisodes = await getPayerEpisodes(s);
 
   if (!s.provider) {
-    return (
-      <>
-        <PageHeader title="Welcome to CareGuard" subtitle="Escrow for medical treatment: the money is committed before treatment and paid one approved charge at a time." />
-        {s.approver && (
-          <Card title="You're an approver">
+    if (s.approver && !s.profile) {
+      return (
+        <>
+          <PageHeader title="Approver" subtitle="You hold the key the contract checks over-cap charges against." />
+          <Card title="Approval queue">
             <p className="m-0 text-sm text-muted">Charges the agent escalates wait for your signature.</p>
             <ButtonLink href="/approve" className="self-start">Open the approval queue</ButtonLink>
           </Card>
-        )}
-        <PayerEpisodes rows={payerEpisodes} />
-        <Card title="Are you a clinic, hospital or facilitator?">
-          <p className="m-0 max-w-[560px] text-sm leading-relaxed text-muted">
-            Set up your provider profile to receive USDC per approved charge. We create a wallet for you; there&apos;s no seed phrase to keep.
-          </p>
-          <ProviderSetup />
-        </Card>
-      </>
-    );
+        </>
+      );
+    }
+    return <PatientHome name={s.profile?.display_name ?? "there"} wallet={s.caller.wallet} rows={payerEpisodes} />;
   }
 
   const data = await getDashboard(s);
@@ -159,39 +152,6 @@ export default async function Dashboard() {
         )}
       </Card>
 
-      {payerEpisodes.length > 0 && <PayerEpisodes rows={payerEpisodes} />}
     </>
-  );
-}
-
-function PayerEpisodes({ rows }: { rows: Awaited<ReturnType<typeof getPayerEpisodes>> }) {
-  return (
-    <Card title="Treatments you're paying for">
-      {rows.length === 0 ? (
-        <EmptyState title="Nothing to fund yet">
-          When a clinic adds you as a payer, the treatment appears here with the amount to fund. Sign in with the email address the clinic used.
-        </EmptyState>
-      ) : (
-        <ul className="m-0 flex list-none flex-col gap-2 p-0">
-          {rows.map((r) => {
-            const left = toUnits(r.owed_usdc) - toUnits(r.funded_usdc);
-            return (
-              <li key={r.episodes.id}>
-                <Link href={`/pay/${r.episodes.id}`} className="lift flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line p-4">
-                  <span className="flex flex-col gap-0.5">
-                    <strong className="text-sm">{r.episodes.providers.name} · for {r.episodes.patient_label}</strong>
-                    <span className="text-xs text-muted">You pay {r.role === "coverer" ? "covered items" : "everything not covered"}</span>
-                  </span>
-                  <span className="flex items-center gap-3">
-                    {left > 0n && <span className="text-sm">To fund <Money value={left} className="font-semibold" /></span>}
-                    <StatusPill status={r.episodes.status} />
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
   );
 }
