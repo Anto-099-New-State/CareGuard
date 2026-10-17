@@ -1,3 +1,4 @@
+import { currency } from "@/lib/currencies";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ChargeStatus } from "@/components/ChargeStatus";
@@ -166,7 +167,7 @@ export default async function EpisodePage({ params }: { params: Promise<{ id: st
                       <span className="flex items-start justify-between gap-2">
                         <span className="flex min-w-0 flex-col">
                           <strong className="truncate text-sm">{p.display_name}</strong>
-                          <span className="truncate text-xs text-muted">{p.role === "coverer" ? "Coverer" : "Family"} · pays in {p.currency} · {p.email}</span>
+                          <span className="truncate text-xs text-muted">{p.role === "coverer" ? "Coverer" : "Family"} · pays in {currency(p.currency)?.symbol} {p.currency}{p.wallet_address ? ` · ${p.wallet_address.slice(0, 6)}…${p.wallet_address.slice(-4)}` : ""}</span>
                         </span>
                         <span className={`flex-none text-xs font-semibold ${funded >= owed ? "text-ok" : "text-amber"}`}>
                           {funded >= owed ? "✓ Funded" : funded > 0n ? "◷ Partly" : "◷ Not yet"}
@@ -183,7 +184,7 @@ export default async function EpisodePage({ params }: { params: Promise<{ id: st
                 })}
               </ul>
             )}
-            {payers.length > 0 && <p className="m-0 text-xs leading-relaxed text-muted">Payers sign in with their email and fund at <code className="font-mono break-all">/pay/{id}</code>.</p>}
+            {payers.length > 0 && <p className="m-0 text-xs leading-relaxed text-muted">Payers connect their wallet and fund at <code className="font-mono break-all">/pay/{id}</code>.</p>}
           </Card>
         </div>
       </div>

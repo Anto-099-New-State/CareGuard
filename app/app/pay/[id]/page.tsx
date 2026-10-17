@@ -42,7 +42,7 @@ async function pendingRefund(owner: Address | null) {
   }
 }
 
-const TX_LABEL: Record<string, string> = { fund: "Funded", refund: "Refund" };
+const TX_LABEL: Record<string, string> = { fund: "Funded", refund: "Refund", swap: "Converted to USDC" };
 
 export default async function Pay({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

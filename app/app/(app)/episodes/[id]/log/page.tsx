@@ -21,8 +21,9 @@ const HEADLINE: Record<string, string> = {
   approve: "Approver approved",
   reject: "Approver rejected",
   discharge: "Discharged",
+  converted: "Converted currency to USDC",
 };
-const DOT: Record<string, string> = { pay: "bg-ok", approve: "bg-ok", discharge: "bg-ok", escalate: "bg-amber", margin_call: "bg-amber", reject: "bg-warn", sized: "bg-strong" };
+const DOT: Record<string, string> = { pay: "bg-ok", approve: "bg-ok", discharge: "bg-ok", escalate: "bg-amber", margin_call: "bg-amber", reject: "bg-warn", sized: "bg-strong", converted: "bg-info" };
 
 /** Every decision: time, outcome, one plain sentence of reason, and the onchain proof. Visible to all parties. */
 export default async function Log({ params }: { params: Promise<{ id: string }> }) {
