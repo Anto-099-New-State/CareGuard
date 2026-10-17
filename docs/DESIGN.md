@@ -22,31 +22,36 @@ For feel and structure, not to copy.
 
 ## Visual system
 
+The look comes from the CareGuard UI reference canvas (landing page and facilitator dashboard). Tokens live in `app/app/globals.css`.
+
 ### Colour
 
 Each colour means one thing.
 
-| Role | Use | Suggested |
+| Role | Use | Light / dark |
 |---|---|---|
-| Ink | Text | Near-black / near-white in dark mode |
-| Surface | Backgrounds and cards | Off-white / deep graphite |
-| Accent | Buttons, links, brand | One calm teal |
-| Paid | Paid charges, refunds | Green |
+| Ink | Text | `#111114` / `#F3F2EE` |
+| Background, surface | Page, cards, quiet panels | White and warm cream `#F5F4F1` / graphite `#0C0C10`, `#15151B` |
+| Accent | Primary buttons, brand mark | Soft purple `#9C8CFF` with dark ink on it |
+| Strong | Links, active nav, the coverer part of a split bar | Deep purple `#4F3BD6` / `#BBAFFF` |
+| Paid | Paid charges, refunds, funded | Green |
 | Waiting | Funding pending, escalations, margin calls | Amber |
 | Rejected | Rejected charges only | Red, used nowhere else |
-| Coverer / Family | The two parts of a split bar | Two neutral tints, always labelled |
-| Testnet | The testnet banner | Purple |
+| Coverer / Family | The two parts of a split bar | Strong purple / accent purple, always labelled |
+| Testnet | The testnet banner | Pale purple band |
 
 Never colour alone: every status also has a text label and an icon.
 
 ### Type
-- **Interface:** Inter or the system font.
-- **Amounts, addresses, hashes:** IBM Plex Mono, so digits line up.
-- Amounts always as `125.00 USDC`. EURC shown as `120.00 EURC → 129.60 USDC` when swapped.
+- **Headings and hero numbers:** Bricolage Grotesque, tight tracking.
+- **Interface text and amounts:** Manrope, with tabular figures so digits line up.
+- **Hashes and addresses only:** IBM Plex Mono.
+- Amounts always as `125.00 USDC`, with the currency as a small muted suffix. EURC shown as `120.00 EURC → 129.60 USDC` when swapped.
 
 ### Shape and motion
-- 8px radius, 1px borders, shadows only on dialogs.
-- Motion only to show state changes (a charge turning Paid, a timeline step filling in).
+- Rounded cards (16px), pill buttons and pills for status, 1px borders. Shadows only on dialogs and the hero card.
+- Motion only to show state changes (a charge turning Paid, a timeline step filling in) and gentle entrances; everything respects reduced motion.
+- Pages are fluid: tables become cards on phones, the sidebar becomes a menu.
 
 ## Key screens
 
