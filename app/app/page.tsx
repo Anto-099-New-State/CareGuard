@@ -4,10 +4,11 @@ import { Logo } from "@/components/Logo";
 import { Reveal } from "@/components/Reveal";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ArrowDownIcon, ArrowUpRightIcon, ClockBackIcon, LockIcon, SwapIcon } from "@/components/icons";
+import { CURRENCIES } from "@/lib/currencies";
 
 const steps = [
   { title: "Sizing", body: "The agent sizes the guarantee from the provider's own quote plus a stated contingency, and explains why." },
-  { title: "Funding", body: "The coverer and the family each fund their share, in USDC or EURC. The contract holds it." },
+  { title: "Funding", body: "The coverer and the family each fund their share in their own currency. It's converted to USDC and the contract holds it." },
   { title: "Treatment", body: "The provider sees the money is committed and starts treating. No guarantee letter to wait for." },
   { title: "Per-charge review", body: "Each charge on the price list and under the cap is paid in seconds, split between the two payers." },
   { title: "Escalation", body: "Over the cap, off the price list or a possible duplicate: a human approver signs before anything moves." },
@@ -27,20 +28,21 @@ const ledger = [
   { when: "15:05", what: "Escalated #4 Bone graft: above the per-charge cap", amount: "520.00" },
 ];
 
+/** What the AI agent does, and the limit on each job. */
+const agentJobs = [
+  { n: "01", title: "Sizes the guarantee", body: "Reads the hospital's quote, adds a stated contingency and sets a per-charge cap.", limit: "Only from the quote; the reason is logged." },
+  { n: "02", title: "Converts currencies", body: "Gets a live EURC price, checks what actually arrived against the guaranteed minimum, logs the rate.", limit: "Conversion runs in the payer's own wallet." },
+  { n: "03", title: "Reviews every charge", body: "Price list, quote, duplicates and cap are checked by rules; an LLM judges the description. Any doubt goes to a human.", limit: "Over the cap needs the approver's signature." },
+  { n: "04", title: "Calls for top-ups", body: "If what's left won't cover the rest of the quote, it asks the payer who is short to top up.", limit: "It can't move money while it waits." },
+  { n: "05", title: "Refunds at discharge", body: "When treatment ends, everything left returns to each payer in the same transaction.", limit: "Funds only ever go to the hospital or back." },
+];
+
 const h2 = "m-0 font-display font-extrabold tracking-[-0.03em]";
 const cardTitle = "m-0 font-display text-[28px] font-bold tracking-[-0.02em]";
 const body = "m-0 text-base leading-relaxed text-muted";
 const pillBtn = "btn rounded-full bg-accent font-bold text-accent-ink";
 /** Launch app: connect wallet, choose a role the first time, then the dashboard. */
 const LAUNCH = "/signin?next=/dashboard";
-
-function TokenCoin({ code }: { code: string }) {
-  return (
-    <span className="a-bob flex h-16 w-16 items-center justify-center rounded-full border border-line bg-chip text-sm font-bold">
-      {code}
-    </span>
-  );
-}
 
 const Amount = ({ v, className = "" }: { v: string; className?: string }) => (
   <span className={`amount ${className}`}>
@@ -58,6 +60,7 @@ export default function Landing() {
           <Logo size="md" />
           <div className="flex flex-auto gap-6 text-sm font-medium max-md:hidden">
             <a className="hover-link" href="#flow">How it works</a>
+            <a className="hover-link" href="#agent">The agent</a>
             <a className="hover-link" href="#money">Currencies</a>
             <a className="hover-link" href="#providers">For hospitals</a>
           </div>
@@ -82,8 +85,8 @@ export default function Landing() {
               Payment guaranteed.
             </h1>
             <p className="a-rise d3 m-0 max-w-[560px] text-lg leading-relaxed text-muted">
-              Before treatment abroad, the people paying for it (an insurer or employer, and the family) commit their money in USDC or EURC. The
-              provider sees it&apos;s there and starts treating. An AI agent pays each charge in seconds, and whatever is left goes back to each payer.
+              Before treatment abroad, the people paying for it (an insurer or employer, and the family) commit their money in their own currency. The
+              hospital sees it&apos;s there and starts treating. An AI agent pays each charge in seconds, and whatever is left goes back to each payer.
             </p>
             <div className="a-rise d4 flex flex-wrap items-center gap-7">
               <Link href={LAUNCH} className={`${pillBtn} px-[34px] py-[18px] text-base`}>Open a care episode</Link>
@@ -104,8 +107,8 @@ export default function Landing() {
           <article className="lift reveal flex flex-col gap-[18px] rounded-[18px] border border-line p-7">
             <h2 className={cardTitle}>Two payers, one episode</h2>
             <p className={body}>
-              A coverer (insurer, employer, or a relative paying covered items) and the family each fund their own share. EURC is swapped to USDC
-              when they fund; the contract only ever holds USDC.
+              A coverer (insurer, employer, or a relative paying covered items) and the family each fund their own share, each in their own
+              currency. It&apos;s converted to USDC when they fund; the contract only ever holds USDC.
             </p>
             <div className="flex flex-col gap-3 rounded-[14px] bg-surface p-[22px]">
               <span className="text-sm font-semibold">Payer</span>
@@ -172,42 +175,80 @@ export default function Landing() {
           </article>
         </section>
 
+        {/* Agent */}
+        <section id="agent" className="mx-auto flex max-w-[1240px] flex-col gap-10 px-6 pb-24">
+          <div className="flex flex-wrap items-end justify-between gap-5">
+            <div className="flex flex-col gap-3">
+              <span className="text-sm font-semibold text-muted">The AI agent</span>
+              <h2 className={`${h2} text-[clamp(34px,4vw,48px)] leading-[1.05]`}>Five jobs, each with a hard limit</h2>
+            </div>
+            <p className="m-0 max-w-[440px] leading-relaxed text-muted">
+              The agent does the routine work so the hospital is paid in seconds. The contract decides what it is allowed to do, and every decision is
+              written to the log with a plain reason.
+            </p>
+          </div>
+          <ol className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))] gap-4 p-0">
+            {agentJobs.map((j) => (
+              <li key={j.n} className="lift reveal flex flex-col gap-2.5 rounded-2xl border border-line p-[22px]">
+                <span className="font-display text-sm font-bold text-strong">{j.n}</span>
+                <strong className="text-lg leading-snug">{j.title}</strong>
+                <span className="text-sm leading-[1.55] text-muted">{j.body}</span>
+                <span className="mt-auto flex items-start gap-2 border-t border-line pt-3 text-xs font-semibold">
+                  <LockIcon size={14} />
+                  {j.limit}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
         {/* Money */}
         <section id="money" className="border-y border-line bg-surface">
           <div className="mx-auto flex max-w-[1240px] flex-col gap-12 px-6 py-24">
             <div className="flex flex-wrap items-center gap-12">
-              <div className="reveal flex min-w-0 flex-[1_1_440px] flex-col gap-[22px]">
-                <span className="text-sm font-semibold text-muted">Where the money goes</span>
+              <div className="reveal flex min-w-0 flex-[1_1_420px] flex-col gap-[22px]">
+                <span className="text-sm font-semibold text-muted">Currencies</span>
                 <h2 className={`${h2} text-[clamp(36px,4.5vw,54px)] leading-[1.05]`}>
-                  USDC or EURC in.
+                  Pay in your currency.
                   <br />
-                  USDC to the provider.
+                  The hospital gets USDC.
                 </h2>
                 <p className="m-0 max-w-[480px] text-base leading-relaxed text-muted">
-                  Money held for an episode can only go two ways: to the provider for an approved charge, or back to the payer who sent it. Nobody,
-                  including us, can send it anywhere else.
+                  Each payer picks what they pay with on the funding page. Anything that isn&apos;t USDC is converted in their own wallet, with a live
+                  price and a guaranteed minimum, before it reaches the contract. Today that&apos;s USDC and EURC; the local-currency stablecoins
+                  announced for Arc switch on here as they launch.
                 </p>
                 <Link href={LAUNCH} className={`${pillBtn} self-start px-[30px] py-[15px] text-sm`}>Open the app</Link>
               </div>
-              <div className="reveal flex min-w-0 flex-[1_1_440px] flex-col items-center gap-[18px] rounded-[20px] border border-line bg-card p-9">
-                <div className="flex flex-wrap justify-center gap-3">
-                  <TokenCoin code="EURC" />
-                  <TokenCoin code="USDC" />
+              <div className="reveal flex min-w-0 flex-[1_1_480px] flex-col gap-5 rounded-[20px] border border-line bg-card p-7">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-2.5">
+                  {CURRENCIES.map((c) => (
+                    <div
+                      key={c.code}
+                      className={`flex flex-col gap-0.5 rounded-xl px-3 py-2.5 ${c.status === "live" ? "border-2 border-strong bg-strong/10" : "border border-dashed border-line"}`}
+                    >
+                      <span className="flex items-center justify-between gap-1">
+                        <strong className="text-sm">{c.code}</strong>
+                        <span className="font-display text-sm text-muted">{c.symbol}</span>
+                      </span>
+                      <span className="truncate text-xs text-muted">{c.name}</span>
+                      <span className={`text-[11px] font-bold ${c.status === "live" ? "text-ok" : "text-muted"}`}>{c.status === "live" ? "● Live" : "Coming to Arc"}</span>
+                    </div>
+                  ))}
                 </div>
-                <ArrowDownIcon className="a-drop text-muted" />
-                <span className="a-glow rounded-full bg-strong px-[34px] py-[18px] text-center font-display text-[22px] font-bold text-white">Held in USDC on Arc</span>
-                <ArrowDownIcon className="a-drop text-muted" />
+                <ArrowDownIcon className="a-drop self-center text-muted" />
+                <span className="a-glow self-center rounded-full bg-strong px-[30px] py-[15px] text-center font-display text-xl font-bold text-white">Held in USDC on Arc</span>
                 <div className="flex flex-wrap justify-center gap-3 text-center text-sm font-bold">
-                  <span className="rounded-full border border-line bg-chip px-4 py-2.5">Provider, per charge</span>
+                  <span className="rounded-full border border-line bg-chip px-4 py-2.5">Hospital, per charge</span>
                   <span className="rounded-full border border-line bg-chip px-4 py-2.5">Payers, what&apos;s left</span>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-5">
               {[
-                { icon: <SwapIcon size={20} />, title: "Swapped when funded", text: "EURC is converted to USDC with Circle's App Kit at the moment a payer funds, so the episode never holds two currencies." },
+                { icon: <SwapIcon size={20} />, title: "Converted with a guarantee", text: "Circle App Kit quotes the swap; if the price moves below the guaranteed minimum it's cancelled and nothing is spent. The agent logs the rate it got." },
                 { icon: <ClockBackIcon size={20} />, title: "Refunds without us", text: "Leftovers return at discharge. If the episode passes its expiry, any payer can trigger the refund straight from the contract." },
-                { icon: <LockIcon size={20} />, title: "An agent with hard limits", text: "The contract caps each charge, pays only the episode's provider, and pays each charge once. Over the cap needs the approver's signature." },
+                { icon: <LockIcon size={20} />, title: "One currency in the contract", text: "Holding only USDC keeps the cap, the split between payers and every refund exact, whatever each payer started with." },
               ].map((c) => (
                 <div key={c.title} className="lift reveal flex flex-col gap-3.5 rounded-2xl border border-line bg-card p-[26px]">
                   <span className="flex h-11 w-11 items-center justify-center rounded-full bg-chip">{c.icon}</span>
