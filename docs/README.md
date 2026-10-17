@@ -45,7 +45,7 @@ Read them in this order:
 - **The contract holds all money.** Funds can go only to the episode's provider (charges) or back to the payer who sent them (refunds). No admin withdrawal.
 - **The agent decides inside limits the contract enforces.** It can't pay above the per-charge cap without the approver's signature, can't pay anyone but the provider, and can't pay the same charge twice.
 - **Two payer slots per episode in v1:** a **coverer** (insurer, employer, or a relative paying covered items) and a **family** payer (everything else).
-- **USDC is the holding currency.** EURC is swapped to USDC when a payer funds. The provider is paid in USDC.
+- **USDC is the holding currency.** Each payer picks their currency on the funding page; anything that isn't USDC is converted in their own wallet before funding (EURC today via App Kit; announced Arc local stablecoins appear as they launch). The provider is paid in USDC.
 - **No medical data onchain.** Only salted hashes of charges and decisions. Descriptions stay in the database, visible only to the provider and approver.
 - **No synthetic data.** No seed scripts, sample episodes or invented price lists. Every episode comes from a real provider and real payers. Our own test runs are flagged and excluded from traction numbers.
 - **Wallet-only sign-in (decided 2026-10-17).** Everyone signs in with Sign-In with Ethereum using the wallet they pay or get paid with, and picks a role the first time: hospital/clinic or patient/family (insurers paying for a patient pick patient). Payers fund and claim refunds from their own wallets; hospitals are paid to theirs. Only the agent keeps a Circle wallet. The approver is recognised by the contract's approver key.

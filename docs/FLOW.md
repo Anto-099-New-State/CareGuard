@@ -67,12 +67,13 @@ sequenceDiagram
     participant BE as Backend
     participant C as Contract (Arc)
     P->>FE: Open funding page, see amount owed and the rules
-    P->>FE: Fund 600 EURC
-    FE->>BE: Fund request
-    BE->>BE: Swap EURC to USDC (App Kit)
-    BE->>C: approve + fund(episodeId, amount)
-    C-->>FE: Funded event
-    FE-->>P: Funded, with explorer link
+    P->>FE: Pay with EURC, see live price and guaranteed minimum
+    P->>C: Swap EURC to USDC in own wallet (App Kit)
+    P->>C: approve + fund(episodeId, amount) in USDC
+    FE->>BE: Funding tx + swap tx
+    BE->>C: Verify Funded event and swap receipt
+    BE->>BE: Agent writes fx decision (rate, route, within quote?)
+    FE-->>P: Funded, with explorer links
 ```
 
 The provider's page shows "Funds committed" once both payers have funded.

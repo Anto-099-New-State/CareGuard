@@ -106,8 +106,16 @@ Next.js API routes plus a small agent module and an indexer, with Supabase. **Th
 | **API** | Routes listed below; checks the caller's role | Supabase service key |
 | **Agent** | Sizes guarantees, reviews charges, raises margin calls, discharges; writes a decision row with a plain-language reason before every onchain action | Agent wallet (Circle), LLM key |
 | **Wallets** | Creates a Circle developer-controlled wallet per payer and provider | Circle API key, entity secret |
-| **Swap** | Converts a payer's EURC to USDC with App Kit before funding | Kit key |
+| **FX** | The payer converts EURC to USDC in their own wallet with App Kit's keyless swap (browser, `lib/client/fx.ts`); the agent verifies the swap receipt, compares what arrived with the quoted minimum and writes an `fx` decision with the rate and route | No (no API key in the browser) |
 | **Indexer** | Reads contract events, updates Supabase | No |
+
+### Currencies
+
+The registry is `app/lib/currencies.ts`. Live on Arc today: **USDC** (pays directly) and **EURC** (converted with Circle App Kit swap, keyless path, signed by the payer's wallet). The local-currency stablecoins Circle has announced for Arc (JPYC, KRW1, BRLA, MXNB, QCAD, AUDF, PHPC, ZARU) have no Arc contract addresses yet; they show as "Coming to Arc" and can't be selected. When one launches, add its address and route there.
+
+The pay form quotes the smallest EURC amount whose *guaranteed minimum* USDC output covers the share, converts it, then approves and funds USDC as usual. Anything above the share stays in the payer's wallet. If the price falls below the minimum the swap reverts and nothing is spent.
+
+StableFX (Circle's RFQ FX on Arc, FxEscrow `0xd68256f4D69C6BbEcB873D8588AE0Dc6B8E22E10` on testnet) is the intended route for larger amounts and for the local currencies once they list, but it is permissioned (API access from Circle), so it is off.
 
 ### How the agent decides
 
