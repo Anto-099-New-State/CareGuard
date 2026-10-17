@@ -43,3 +43,16 @@ npm run indexer -- --watch                               # optional: follow cont
 3. Put the address and deploy block in `config/testnet.json`, push the migration to the hosted Supabase project, and fill `app/.env.local` from `.env.example`.
 
 Payer and provider wallets are Circle developer-controlled wallets we create for them, so they are custodial in this version.
+
+### Testnet scenarios (TESTING.md layer 3)
+
+Run the app in testnet mode, then the scenarios. They use tiny amounts, real Circle wallets, real Groq review and the approver key in `app/secrets/approver-testnet.txt`; the run takes ~35 minutes because scenario D waits for the 30-minute expiry. Links are written to `app/secrets/testnet-run.md`.
+
+```bash
+cd app
+NEXT_PUBLIC_NETWORK=testnet AGENT_JUDGE= npm run dev        # terminal 1
+NEXT_PUBLIC_NETWORK=testnet AGENT_JUDGE= npm run e2e:testnet # terminal 2
+NEXT_PUBLIC_NETWORK=testnet npm run sweep:testnet            # afterwards: discharge test episodes, return payer-wallet USDC to the agent
+```
+
+On Arc, network fees are paid in USDC from the same balance. A payer's wallet needs the amount plus about 0.25 USDC (`FEE_BUFFER_USDC`); the app checks this before funding.
