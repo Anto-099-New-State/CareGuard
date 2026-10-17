@@ -7,7 +7,8 @@ import { requireSession } from "@/lib/server/session";
 export const metadata: Metadata = { title: "Account & role · CareGuard" };
 
 /** Your wallet and role. The role chosen at first sign-in is the default; switch it here any time. */
-export default async function Account() {
+export default async function Account({ searchParams }: { searchParams: Promise<{ role?: string }> }) {
+  const { role: wanted } = await searchParams;
   const s = await requireSession("/account");
   const { data: hospital } = await db().from("providers").select("name").eq("user_id", s.caller.userId).maybeSingle();
   const wallet = s.caller.wallet;
@@ -28,6 +29,7 @@ export default async function Account() {
         next="/dashboard"
         current={s.profile?.role ?? null}
         names={{ provider: hospital?.name ?? "", patient: s.profile?.display_name ?? "" }}
+        preselect={wanted === "provider" || wanted === "patient" ? wanted : undefined}
       />
     </>
   );

@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { addressUrl, config } from "@/lib/config";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
-import { ApprovalsIcon, DashboardIcon, EpisodesIcon, LedgerIcon, PayersIcon, PriceListIcon } from "./icons";
+import { api } from "@/lib/client/api";
+import { ApprovalsIcon, DashboardIcon, EpisodesIcon, LedgerIcon, PriceListIcon, SwapIcon } from "./icons";
 
 type Item = { href: string; label: string; icon: ReactNode };
-export type ShellUser = { name: string; wallet: string | null; role: string; initials: string } | null;
+export type ShellUser = { name: string; wallet: string | null; role: string; initials: string; profileRole: "provider" | "patient" | null } | null;
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
@@ -31,7 +32,6 @@ function groupsFor(provider: boolean, approver: boolean) {
         { href: "/team/traction", label: "Traction", icon: <LedgerIcon /> },
       ],
     });
-  groups.push({ title: "You", items: [{ href: "/account", label: "Account & role", icon: <PayersIcon /> }] });
   return groups;
 }
 
@@ -60,6 +60,50 @@ function Nav({ provider, approver, onNavigate }: { provider: boolean; approver: 
         </div>
       ))}
     </nav>
+  );
+}
+
+/** One click flips between the hospital and patient views. Becoming a hospital the first time needs a name, so that goes to Account. */
+function SwitchRole({ current, onNavigate }: { current: "provider" | "patient"; onNavigate?: () => void }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const other = current === "provider" ? "patient" : "provider";
+  const run = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await api("/api/profile", { method: "PATCH", body: { role: other } });
+      onNavigate?.();
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (/hospital or clinic name/i.test(msg)) {
+        onNavigate?.();
+        router.push("/account?role=provider");
+      } else setError(msg || "Couldn't switch role.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="eyebrow px-3 pb-1.5 text-xs">Role</span>
+      <button
+        type="button"
+        onClick={run}
+        disabled={busy}
+        className="navlink flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-line bg-card px-3 text-left text-sm font-semibold text-ink disabled:cursor-wait disabled:opacity-60"
+      >
+        <span className="text-strong"><SwapIcon /></span>
+        <span className="flex min-w-0 flex-col leading-tight">
+          <span>{busy ? "Switching…" : current === "provider" ? "Switch to patient" : "Switch to hospital"}</span>
+          <span className="text-xs font-medium text-muted">Now: {current === "provider" ? "hospital" : "patient"}</span>
+        </span>
+      </button>
+      {error && <span role="alert" className="px-3 text-xs text-warn">{error}</span>}
+    </div>
   );
 }
 
@@ -124,6 +168,7 @@ export function AppSidebar({ provider, approver, agent, user }: { provider: bool
       <aside className="sticky top-0 hidden h-screen w-[264px] flex-none flex-col gap-8 overflow-y-auto border-r border-line bg-side px-5 py-7 md:flex">
         <Logo size="md" dot={false} href="/dashboard" />
         <Nav provider={provider} approver={approver} />
+        {user?.profileRole && <SwitchRole current={user.profileRole} />}
         <div className="mt-auto flex flex-col gap-4">
           <NetworkCard agent={agent} />
           <div className="flex items-center justify-between gap-2 border-t border-line pt-4">
@@ -153,6 +198,7 @@ export function AppSidebar({ provider, approver, agent, user }: { provider: bool
         {open && (
           <div id="mobile-nav" className="absolute inset-x-0 top-full flex flex-col gap-6 border-b border-line bg-side px-4 pt-5 pb-6 shadow-[0_24px_40px_-24px_rgba(20,16,60,.45)]">
             <Nav provider={provider} approver={approver} onNavigate={() => setOpen(false)} />
+            {user?.profileRole && <SwitchRole current={user.profileRole} onNavigate={() => setOpen(false)} />}
             <NetworkCard agent={agent} />
             <UserBlock user={user} />
           </div>

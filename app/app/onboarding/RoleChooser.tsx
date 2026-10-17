@@ -27,12 +27,12 @@ const ROLES = [
 ];
 
 /**
- * Role choice. On first sign-in it sets the default (`mode="first"`); on Account & role it switches (`mode="switch"`),
+ * Role choice. On first sign-in it sets the default (`mode="first"`); on Account (or the sidebar's Switch role) it switches (`mode="switch"`),
  * keeping all data. Names are prefilled when the wallet already has them.
  */
-export function RoleChooser({ next, mode = "first", current = null, names = {} }: { next: string; mode?: "first" | "switch"; current?: Role | null; names?: Partial<Record<Role, string>> }) {
+export function RoleChooser({ next, mode = "first", current = null, names = {}, preselect }: { next: string; mode?: "first" | "switch"; current?: Role | null; names?: Partial<Record<Role, string>>; preselect?: Role }) {
   const router = useRouter();
-  const [role, setRole] = useState<Role | null>(current);
+  const [role, setRole] = useState<Role | null>(preselect ?? current);
   const [nameByRole, setNameByRole] = useState<Partial<Record<Role, string>>>(names);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

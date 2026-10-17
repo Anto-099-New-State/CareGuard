@@ -21,6 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         name: name ?? `${wallet!.slice(0, 6)}…${wallet!.slice(-4)}`,
         wallet,
         role: s.provider ? "Hospital" : s.approver && !s.profile ? "Approver" : "Patient",
+        profileRole: s.profile?.role ?? null,
         initials: (name ?? "0x").replace(/[^A-Za-z0-9 ]/g, "").split(/\s+/).map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() || "?",
       }
     : null;
