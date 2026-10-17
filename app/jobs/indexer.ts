@@ -7,6 +7,7 @@
  *   npm run indexer -- --from 0  # rebuild from the deploy block after wiping the cache
  */
 import { setTimeout as delay } from "node:timers/promises";
+import { parseEventLogs } from "viem";
 import { publicClient } from "../lib/chains";
 import { config } from "../lib/config";
 import { careGuard } from "../lib/contract";
@@ -14,7 +15,8 @@ import { db, must, type EpisodeRow } from "../lib/server/db";
 import { refreshFromChain } from "../lib/server/episodes";
 import { canonicalJson } from "../lib/server/hash";
 
-const CHUNK = 5_000n;
+// Arc Testnet's RPC caps eth_getLogs ranges; start small and halve when a provider refuses.
+let chunk = BigInt(process.env.INDEXER_CHUNK ?? 2_000);
 const args = process.argv.slice(2);
 const watch = args.includes("--watch");
 const fromArg = args.includes("--from") ? BigInt(args[args.indexOf("--from") + 1]) : null;
@@ -26,7 +28,9 @@ async function cursor(): Promise<bigint> {
 }
 
 async function applyRange(from: bigint, to: bigint) {
-  const logs = await publicClient.getContractEvents({ ...careGuard, fromBlock: from, toBlock: to });
+  // Filter by address only and decode here: Arc's RPC refuses a filter listing every event topic.
+  const raw = await publicClient.getLogs({ address: careGuard.address, fromBlock: from, toBlock: to });
+  const logs = parseEventLogs({ abi: careGuard.abi, logs: raw });
   const touched = new Set<bigint>();
 
   for (const log of logs) {
@@ -81,8 +85,16 @@ async function catchUp() {
   let from = await cursor();
   let total = 0;
   while (from <= head) {
-    const to = from + CHUNK - 1n < head ? from + CHUNK - 1n : head;
-    total += await applyRange(from, to);
+    const to = from + chunk - 1n < head ? from + chunk - 1n : head;
+    try {
+      total += await applyRange(from, to);
+    } catch (err) {
+      if (chunk > 50n && /range|too large|limit|exceed/i.test(err instanceof Error ? err.message : "")) {
+        chunk /= 2n;
+        continue; // retry the same start with a smaller range
+      }
+      throw err;
+    }
     from = to + 1n;
   }
   return { head, total };

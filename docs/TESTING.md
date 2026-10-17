@@ -125,11 +125,11 @@ Charges that eat most of the funds. **Expect:** `MarginCall` to the right payer 
 
 | Scenario | Local | Testnet tx links | Mainnet tx links | Passed by |
 |---|---|---|---|---|
-| A. Happy path | ☑ | | | Local: `npm run e2e`, 2026-10-17 |
-| B. Escalation | ☑ | | n/a | Local: `npm run e2e`, 2026-10-17 |
-| C. Margin call | ☑ | | n/a | Local: `npm run e2e`, 2026-10-17 |
-| D. Agent offline | ☑ | | | Local: `npm run e2e`, 2026-10-17 |
-| E. Abuse | ☑ | | n/a | Local: `npm run e2e`, 2026-10-17 |
+| A. Happy path | ☑ | [tx](https://explorer.testnet.arc.io/tx/0x8d9a4c79d71d6c24510d76dfb760cf74a8ba20e87162e847203148e6d2ea132f) | | Local `npm run e2e` + testnet `npm run e2e:testnet`, 2026-10-17 ([full run](testnet-run-2026-10-17.md)) |
+| B. Escalation | ☑ | [tx](https://explorer.testnet.arc.io/tx/0x395bc0479f20030cb6329f6e45d1597276fbb286dd8006225fa818382200e892) | n/a | Local `npm run e2e` + testnet `npm run e2e:testnet`, 2026-10-17 ([full run](testnet-run-2026-10-17.md)) |
+| C. Margin call | ☑ | [tx](https://explorer.testnet.arc.io/tx/0x3192ca58c9c66411e59622bdc44fe23a0e26f4661ae9121746f51f30b163bc7b) | n/a | Local `npm run e2e` + testnet `npm run e2e:testnet`, 2026-10-17 ([full run](testnet-run-2026-10-17.md)) |
+| D. Agent offline | ☑ | [tx](https://explorer.testnet.arc.io/tx/0x6519e28c566a885de9145f6007cc7ac15f518d24bca67307dbc8ce0fb16841ab) | | Local `npm run e2e` + testnet `npm run e2e:testnet`, 2026-10-17 ([full run](testnet-run-2026-10-17.md)) |
+| E. Abuse | ☑ | [tx](https://explorer.testnet.arc.io/tx/0xc2678a6772204615f7380bcdf7eb1d78a54f72567e49d1f9de8bd965d36d7f3f) | n/a | Local `npm run e2e` + testnet `npm run e2e:testnet`, 2026-10-17 ([full run](testnet-run-2026-10-17.md)) |
 
 ## Bug report template
 
