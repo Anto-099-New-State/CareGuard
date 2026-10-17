@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { HeroScene } from "@/components/HeroScene";
+import { HeroArc } from "@/components/HeroArc";
 import { Logo } from "@/components/Logo";
 import { Reveal } from "@/components/Reveal";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -98,7 +98,7 @@ export default function Landing() {
           </div>
 
           <div className="a-rise d3 min-w-0 flex-[1_1_440px]">
-            <HeroScene />
+            <HeroArc />
           </div>
         </section>
 
