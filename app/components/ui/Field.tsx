@@ -6,7 +6,7 @@ export function Field({ label, hint, className = "", ...rest }: InputHTMLAttribu
   const id = useId();
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
-      <label htmlFor={id} className="text-[13px] font-semibold">{label}</label>
+      <label htmlFor={id} className="text-sm font-semibold">{label}</label>
       <input id={id} className={control} aria-describedby={hint ? `${id}-hint` : undefined} {...rest} />
       {hint && <span id={`${id}-hint`} className="text-xs text-muted">{hint}</span>}
     </div>
@@ -17,7 +17,7 @@ export function Select({ label, className = "", children, ...rest }: SelectHTMLA
   const id = useId();
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
-      <label htmlFor={id} className="text-[13px] font-semibold">{label}</label>
+      <label htmlFor={id} className="text-sm font-semibold">{label}</label>
       <select id={id} className={control} {...rest}>{children}</select>
     </div>
   );
@@ -28,7 +28,7 @@ export function AmountField({ label, currency = "USDC", hint, ...rest }: InputHT
   const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-[13px] font-semibold">{label}</label>
+      <label htmlFor={id} className="text-sm font-semibold">{label}</label>
       <div className="flex min-h-11 items-center rounded-[10px] border border-line bg-card pr-3.5 focus-within:outline-2 focus-within:outline-strong">
         <input id={id} inputMode="decimal" pattern="[0-9]*[.,]?[0-9]{0,6}" className="min-w-0 flex-1 rounded-[10px] bg-transparent px-3.5 py-2.5 text-sm font-semibold text-ink tabular-nums outline-0" {...rest} />
         <span className="text-xs font-bold tracking-wide text-muted">{currency}</span>

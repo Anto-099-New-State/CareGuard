@@ -74,7 +74,7 @@ export function RoleChooser({ next, mode = "first", current = null, names = {} }
           >
             <input type="radio" name="role" value={r.id} checked={role === r.id} onChange={() => setRole(r.id)} className="sr-only" />
             {mode === "switch" && current === r.id && (
-              <span className="absolute top-4 right-4 rounded-full bg-chip px-2.5 py-1 text-[11px] font-bold text-muted">Current</span>
+              <span className="absolute top-4 right-4 rounded-full bg-chip px-2.5 py-1 text-xs font-bold text-muted">Current</span>
             )}
             <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${role === r.id ? "bg-strong text-white" : "bg-chip text-ink"}`}>{r.icon}</span>
             <strong className="font-display text-lg">{r.title}</strong>

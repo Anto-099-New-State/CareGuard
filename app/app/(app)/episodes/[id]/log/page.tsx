@@ -62,11 +62,11 @@ export default async function Log({ params }: { params: Promise<{ id: string }> 
                 {i < decisions.length - 1 && <span className="absolute top-5 bottom-[-24px] w-px bg-line" />}
               </span>
               <div className="flex min-w-0 flex-col gap-1">
-                <strong className="text-[15px]">{HEADLINE[d.outcome] ?? d.outcome}</strong>
+                <strong className="text-base">{HEADLINE[d.outcome] ?? d.outcome}</strong>
                 <span className="text-sm leading-relaxed text-muted">{d.reason}</span>
                 <span className="flex flex-wrap items-center gap-3">
                   {d.tx_hash ? <TxLink hash={d.tx_hash} /> : <span className="text-xs text-amber">◷ Not logged onchain yet</span>}
-                  <span className="font-mono text-[11px] text-muted" title={d.hash}>hash {d.hash.slice(0, 10)}…</span>
+                  <span className="font-mono text-xs text-muted" title={d.hash}>hash {d.hash.slice(0, 10)}…</span>
                 </span>
               </div>
             </li>

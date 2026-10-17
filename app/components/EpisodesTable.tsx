@@ -38,10 +38,10 @@ export function EpisodesTable({ episodes }: { episodes: EpisodeSummary[] }) {
                   type="button"
                   aria-pressed={on}
                   onClick={() => setFilter(f.label)}
-                  className={`flex h-9 flex-none cursor-pointer items-center gap-1.5 rounded-full border-0 px-3.5 text-[13px] whitespace-nowrap ${on ? "bg-card font-bold text-ink shadow-[0_1px_2px_rgba(0,0,0,.12)]" : "bg-transparent font-semibold text-muted"}`}
+                  className={`flex h-9 flex-none cursor-pointer items-center gap-1.5 rounded-full border-0 px-3.5 text-sm whitespace-nowrap ${on ? "bg-card font-bold text-ink shadow-[0_1px_2px_rgba(0,0,0,.12)]" : "bg-transparent font-semibold text-muted"}`}
                 >
                   {f.label}
-                  <span className={`rounded-full px-1.5 text-[11px] ${on ? "bg-chip" : ""}`}>{count(f)}</span>
+                  <span className={`rounded-full px-1.5 text-xs ${on ? "bg-chip" : ""}`}>{count(f)}</span>
                 </button>
               );
             })}

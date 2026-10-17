@@ -94,10 +94,10 @@ function Row({ item, approver, onDone }: { item: QueueItem; approver: Address; o
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-1.5">
           <span className="flex flex-wrap items-center gap-2">
-            <strong className="text-[15px]">
+            <strong className="text-base">
               #{item.charge.number} {item.charge.price_items?.label ?? "Off-list charge"}
             </strong>
-            {item.charge.price_items && <span className="font-mono text-[11px] text-muted">{item.charge.price_items.code}</span>}
+            {item.charge.price_items && <span className="font-mono text-xs text-muted">{item.charge.price_items.code}</span>}
             <span className="text-xs text-muted" title={new Date(item.charge.created_at).toLocaleString()}>· waiting {age(item.charge.created_at)}</span>
           </span>
           <p className="m-0 flex gap-2 rounded-xl bg-amber-bg px-3 py-2 text-sm text-ink">

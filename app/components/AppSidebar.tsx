@@ -41,7 +41,7 @@ function Nav({ provider, approver, onNavigate }: { provider: boolean; approver: 
     <nav aria-label="App" className="flex flex-col gap-6 text-sm">
       {groupsFor(provider, approver).map((g) => (
         <div key={g.title} className="flex flex-col gap-1">
-          <span className="eyebrow px-3 pb-1.5 text-[11px]">{g.title}</span>
+          <span className="eyebrow px-3 pb-1.5 text-xs">{g.title}</span>
           {g.items.map((item) => {
             const on = path === item.href || (item.href !== "/dashboard" && path.startsWith(item.href));
             return (
@@ -94,12 +94,12 @@ function UserBlock({ user }: { user: ShellUser }) {
     );
   return (
     <div className="flex items-center gap-3">
-      <span aria-hidden="true" className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-strong text-[13px] font-bold text-white">
+      <span aria-hidden="true" className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-strong text-sm font-bold text-white">
         {user.initials}
       </span>
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-sm font-semibold">{user.name}</span>
-        <span className="truncate text-[11px] text-muted">
+        <span className="truncate text-xs text-muted">
           <Link href="/account" className="hover-link">{user.role}</Link>
           {user.wallet && <> · <span className="font-mono">{short(user.wallet)}</span></>}
         </span>

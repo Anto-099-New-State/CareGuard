@@ -66,7 +66,7 @@ export function SubmitCharge({ episodeId, items }: { episodeId: string; items: I
         <Field label="Quantity" inputMode="numeric" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
         {item ? (
           <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-semibold">Amount</span>
+            <span className="text-sm font-semibold">Amount</span>
             <span className="flex min-h-11 items-center text-base font-semibold"><Money value={BigInt(item.unitPrice) * BigInt(q)} /></span>
           </div>
         ) : (

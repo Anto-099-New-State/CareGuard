@@ -29,12 +29,12 @@ const ledger = [
 
 const h2 = "m-0 font-display font-extrabold tracking-[-0.03em]";
 const cardTitle = "m-0 font-display text-[28px] font-bold tracking-[-0.02em]";
-const body = "m-0 text-[15px] leading-relaxed text-muted";
+const body = "m-0 text-base leading-relaxed text-muted";
 const pillBtn = "btn rounded-full bg-accent font-bold text-accent-ink";
 
 function TokenCoin({ code }: { code: string }) {
   return (
-    <span className="a-bob flex h-16 w-16 items-center justify-center rounded-full border border-line bg-chip text-[13px] font-bold">
+    <span className="a-bob flex h-16 w-16 items-center justify-center rounded-full border border-line bg-chip text-sm font-bold">
       {code}
     </span>
   );
@@ -72,7 +72,7 @@ export default function Landing() {
         {/* Hero */}
         <section className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-14 px-6 pt-[88px] pb-24 max-sm:pt-12">
           <div className="flex min-w-0 flex-[1_1_520px] flex-col gap-7">
-            <span className="a-rise d1 flex items-center gap-2 self-start rounded-full border border-line px-3.5 py-[7px] text-[13px] font-semibold text-muted">
+            <span className="a-rise d1 flex items-center gap-2 self-start rounded-full border border-line px-3.5 py-[7px] text-sm font-semibold text-muted">
               <span className="a-pulse h-2 w-2 rounded-full bg-ok" />
               Settles in USDC on Arc
             </span>
@@ -81,12 +81,12 @@ export default function Landing() {
               <br />
               Payment guaranteed.
             </h1>
-            <p className="a-rise d3 m-0 max-w-[560px] text-[17px] leading-relaxed text-muted">
+            <p className="a-rise d3 m-0 max-w-[560px] text-lg leading-relaxed text-muted">
               Before treatment abroad, the people paying for it (an insurer or employer, and the family) commit their money in USDC or EURC. The
               provider sees it&apos;s there and starts treating. An AI agent pays each charge in seconds, and whatever is left goes back to each payer.
             </p>
             <div className="a-rise d4 flex flex-wrap items-center gap-7">
-              <Link href="/dashboard" className={`${pillBtn} px-[34px] py-[18px] text-[15px]`}>Open a care episode</Link>
+              <Link href="/dashboard" className={`${pillBtn} px-[34px] py-[18px] text-base`}>Open a care episode</Link>
               <a href="#flow" className="arrow hover-link flex items-center gap-2 text-base font-semibold">
                 See how it works
                 <ArrowUpRightIcon />
@@ -100,7 +100,7 @@ export default function Landing() {
                 <HospitalIcon size={22} stroke="#FFFFFF" />
               </span>
               <div className="flex flex-auto flex-col gap-0.5">
-                <strong className="text-[15px]">Dental clinic, abroad</strong>
+                <strong className="text-base">Dental clinic, abroad</strong>
                 <span className="text-xs text-muted">Example episode · implant + crown</span>
               </div>
               <span className="rounded-full bg-ok-bg px-2.5 py-[5px] text-xs font-bold text-ok">Funds committed</span>
@@ -124,15 +124,15 @@ export default function Landing() {
               <div className="flex flex-col gap-1.5 rounded-[14px] bg-surface p-3.5">
                 <span className="text-xs text-muted">Family funds in</span>
                 <strong className="text-sm">EURC or USDC</strong>
-                <span className="text-[11px] text-muted">Held as USDC</span>
+                <span className="text-xs text-muted">Held as USDC</span>
               </div>
               <div className="flex flex-col gap-1.5 rounded-[14px] bg-surface p-3.5">
                 <span className="text-xs text-muted">Provider paid in</span>
                 <strong className="text-sm">USDC</strong>
-                <span className="text-[11px] text-muted">Per approved charge</span>
+                <span className="text-xs text-muted">Per approved charge</span>
               </div>
             </div>
-            <Link href="/dashboard" className={`${pillBtn} a-glow block p-4 text-center text-[15px]`}>Fund my share</Link>
+            <Link href="/dashboard" className={`${pillBtn} a-glow block p-4 text-center text-base`}>Fund my share</Link>
           </div>
         </section>
 
@@ -145,12 +145,12 @@ export default function Landing() {
               when they fund; the contract only ever holds USDC.
             </p>
             <div className="flex flex-col gap-3 rounded-[14px] bg-surface p-[22px]">
-              <span className="text-[13px] font-semibold">Payer</span>
+              <span className="text-sm font-semibold">Payer</span>
               <span className="rounded-[10px] border border-line bg-card px-3.5 py-3 text-sm">Ana (daughter) · Lisbon</span>
-              <span className="text-[13px] font-semibold">Pay with</span>
+              <span className="text-sm font-semibold">Pay with</span>
               <div className="grid grid-cols-2 gap-2.5">
-                <span className="rounded-xl border-2 border-strong bg-card px-2 py-3 text-center text-[13px] font-bold">EURC</span>
-                <span className="rounded-xl border border-line bg-card px-2 py-3 text-center text-[13px] font-semibold">USDC</span>
+                <span className="rounded-xl border-2 border-strong bg-card px-2 py-3 text-center text-sm font-bold">EURC</span>
+                <span className="rounded-xl border border-line bg-card px-2 py-3 text-center text-sm font-semibold">USDC</span>
               </div>
             </div>
           </article>
@@ -166,7 +166,7 @@ export default function Landing() {
                   <span>{f.label}</span>
                   <span className="text-xs text-muted">{f.payer}</span>
                   <Amount v={f.amount} className="font-semibold" />
-                  <span className={`rounded-full px-[9px] py-1 text-[11px] font-bold ${f.done ? "bg-ok-bg text-ok" : "a-blink bg-amber-bg text-amber"}`}>{f.status}</span>
+                  <span className={`rounded-full px-[9px] py-1 text-xs font-bold ${f.done ? "bg-ok-bg text-ok" : "a-blink bg-amber-bg text-amber"}`}>{f.status}</span>
                 </div>
               ))}
             </div>
@@ -197,7 +197,7 @@ export default function Landing() {
               Each sizing, payment, escalation, margin call and refund is written down with a plain reason before money moves, and its hash is logged
               on Arc so nobody can change it afterwards.
             </p>
-            <div className="overflow-hidden rounded-[14px] border border-line text-[13px]">
+            <div className="overflow-hidden rounded-[14px] border border-line text-sm">
               {ledger.map((l, i) => (
                 <div key={l.when} className={`grid grid-cols-[56px_minmax(0,1fr)_auto] gap-3 px-4 py-[13px] ${i < ledger.length - 1 ? "border-b border-line" : ""}`}>
                   <span className="text-muted tabular-nums">{l.when}</span>
@@ -234,7 +234,7 @@ export default function Landing() {
                 <ArrowDownIcon className="a-drop text-muted" />
                 <span className="a-glow rounded-full bg-strong px-[34px] py-[18px] text-center font-display text-[22px] font-bold text-white">Held in USDC on Arc</span>
                 <ArrowDownIcon className="a-drop text-muted" />
-                <div className="flex flex-wrap justify-center gap-3 text-center text-[13px] font-bold">
+                <div className="flex flex-wrap justify-center gap-3 text-center text-sm font-bold">
                   <span className="rounded-full border border-line bg-chip px-4 py-2.5">Provider, per charge</span>
                   <span className="rounded-full border border-line bg-chip px-4 py-2.5">Payers, what&apos;s left</span>
                 </div>
@@ -296,7 +296,7 @@ export default function Landing() {
       </main>
 
       <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-[1240px] flex-wrap justify-between gap-4 px-6 py-8 text-[13px] text-muted">
+        <div className="mx-auto flex max-w-[1240px] flex-wrap justify-between gap-4 px-6 py-8 text-sm text-muted">
           <span>CareGuard · built on Arc · hackathon prototype</span>
           <span>Examples on this page are illustrations, not real patients.</span>
         </div>

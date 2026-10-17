@@ -98,7 +98,7 @@ export default async function EpisodePage({ params }: { params: Promise<{ id: st
           },
         ].map((st, i) => (
           <div key={st.label} className={`flex min-w-0 flex-col gap-1.5 border-line p-4 sm:p-5 ${i % 2 === 0 && i < 4 ? "border-r" : ""} ${i < 4 ? "border-b lg:border-b-0" : "col-span-2 lg:col-span-1"} lg:border-r lg:last:border-r-0`}>
-            <span className="eyebrow text-[11px]">{st.label}</span>
+            <span className="eyebrow text-xs">{st.label}</span>
             <strong className="text-xl font-semibold">{st.value}</strong>
             <span className="text-xs text-muted">{st.note}</span>
           </div>
@@ -125,13 +125,13 @@ export default async function EpisodePage({ params }: { params: Promise<{ id: st
                       <span className="text-sm font-semibold">
                         {c.price_items ? c.price_items.label : "Off-list charge"}
                         {c.quantity > 1 && <span className="font-normal text-muted"> × {c.quantity}</span>}
-                        {c.price_items && <span className="ml-2 font-mono text-[11px] font-normal text-muted">{c.price_items.code}</span>}
+                        {c.price_items && <span className="ml-2 font-mono text-xs font-normal text-muted">{c.price_items.code}</span>}
                       </span>
                       {reason && <span className="text-xs leading-relaxed text-muted">{reason}</span>}
                     </span>
                     <span className="hidden md:block">
                       <SplitBar covered={covered} total={amount} compact />
-                      <span className="mt-1 block text-[11px] text-muted"><Money value={covered} /> covered</span>
+                      <span className="mt-1 block text-xs text-muted"><Money value={covered} /> covered</span>
                     </span>
                     <span className="text-right text-sm font-semibold"><Money value={amount} /></span>
                     <span className="col-start-2 flex flex-wrap items-center gap-2">

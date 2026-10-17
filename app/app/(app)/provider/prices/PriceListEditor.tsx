@@ -62,7 +62,7 @@ export function PriceListEditor({ initial }: { initial: { id: string; code: stri
       <div className="overflow-x-auto rounded-[14px] border border-line">
         <table className="w-full min-w-[620px] border-collapse text-sm">
           <thead>
-            <tr className="text-left text-[13px] text-muted">
+            <tr className="text-left text-sm text-muted">
               <th className="border-b border-line px-3 py-3 font-medium">Code</th>
               <th className="border-b border-line px-3 py-3 font-medium">Item</th>
               <th className="border-b border-line px-3 py-3 text-right font-medium">Unit price (USDC)</th>

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, IBM_Plex_Mono, Manrope } from "next/font/google";
+import { Bricolage_Grotesque, Figtree, IBM_Plex_Mono } from "next/font/google";
 import { TestnetBanner } from "@/components/TestnetBanner";
 import "./globals.css";
 
 const bricolage = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"], weight: ["500", "600", "700", "800"] });
-const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"], weight: ["400", "500", "600", "700"] });
+// Figtree: open, large x-height letterforms that stay readable at small sizes on phones; Bricolage stays for headings.
+const figtree = Figtree({ variable: "--font-figtree", subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500", "600"] });
 
 export const metadata: Metadata = {
@@ -21,7 +22,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${bricolage.variable} ${manrope.variable} ${plexMono.variable} antialiased`}>
+      <body className={`${bricolage.variable} ${figtree.variable} ${plexMono.variable} antialiased`}>
         <TestnetBanner />
         {children}
       </body>

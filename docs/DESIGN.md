@@ -44,7 +44,7 @@ Never colour alone: every status also has a text label and an icon.
 
 ### Type
 - **Headings and hero numbers:** Bricolage Grotesque, tight tracking.
-- **Interface text and amounts:** Manrope, with tabular figures so digits line up.
+- **Interface text and amounts:** Figtree (open, large x-height, readable at small sizes on phones), with tabular figures so digits line up. Smallest text 13px, body 16-17px.
 - **Hashes and addresses only:** IBM Plex Mono.
 - Amounts always as `125.00 USDC`, with the currency as a small muted suffix. EURC shown as `120.00 EURC → 129.60 USDC` when swapped.
 

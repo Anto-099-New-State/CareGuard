@@ -57,6 +57,18 @@
   color-scheme: dark;
 }
 
+/* Type scale, one step larger than Tailwind's default so small print stays readable. */
+@theme {
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.35;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.6;
+  --text-lg: 1.1875rem;
+  --text-lg--line-height: 1.5;
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-side: var(--side);
@@ -82,8 +94,8 @@
   --color-amber: var(--amber);
   --color-testnet-bg: var(--testnet-bg);
   --color-testnet: var(--testnet);
-  --font-sans: var(--font-manrope), system-ui, sans-serif;
-  --font-display: var(--font-bricolage), var(--font-manrope), sans-serif;
+  --font-sans: var(--font-figtree), system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-figtree), sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 }
 
@@ -177,8 +189,8 @@
 
 /* Amounts: aligned digits in the interface face, currency as a quiet suffix. */
 .amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.amount .ccy { margin-left: 0.3em; font-size: 0.68em; font-weight: 700; letter-spacing: 0.04em; color: var(--muted); }
-.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.amount .ccy { margin-left: 0.3em; font-size: 0.72em; font-weight: 700; letter-spacing: 0.04em; color: var(--muted); }
+.eyebrow { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 
 @media (prefers-reduced-motion: reduce) {
   .reveal-ready .reveal { opacity: 1; transform: none; }

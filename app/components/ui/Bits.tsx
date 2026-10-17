@@ -45,7 +45,7 @@ export function SplitBar({ covered, total, compact = false }: { covered: bigint;
         {pct < 100 && <span className="bg-accent" style={{ flex: `${100 - pct} 1 0` }} />}
       </div>
       {!compact && (
-        <span className="flex justify-between gap-2 text-[11px] text-muted">
+        <span className="flex justify-between gap-2 text-xs text-muted">
           <span>Coverer {pct}%</span>
           <span>Family {Math.round((100 - pct) * 10) / 10}%</span>
         </span>

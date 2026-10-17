@@ -23,7 +23,7 @@ export default async function Onboarding({ searchParams }: { searchParams: Promi
         <Logo />
         <div className="flex flex-col gap-2">
           <h1 className="m-0 font-display text-[32px] leading-tight font-bold tracking-[-0.025em]">How will you use CareGuard?</h1>
-          <p className="m-0 text-[15px] leading-relaxed text-muted">
+          <p className="m-0 text-base leading-relaxed text-muted">
             Signed in as <code className="font-mono text-ink">{wallet.slice(0, 6)}…{wallet.slice(-4)}</code>. Pick how you&apos;ll start; this becomes your
             default, and you can switch any time from Account &amp; role.
           </p>
