@@ -175,7 +175,7 @@ export default async function Pay({ params }: { params: Promise<{ id: string }> 
             </span>
             <code className="font-mono text-xs break-all text-ink">{wallet}</code>
             <span className="text-xs text-muted">
-              Holds <Money value={usdc ?? 0n} />{eurc !== null && <> and <Money value={eurc} currency="EURC" /></>}. Send USDC or EURC on Arc {config.network} to this address, then fund above.
+              Holds <Money value={usdc ?? 0n} />{eurc !== null && <> and <Money value={eurc} currency="EURC" /></>}. Send USDC or EURC on Arc {config.network} to this address, then fund above. Keep about 0.25 USDC extra: Arc network fees are paid in USDC.
             </span>
           </section>
         )}

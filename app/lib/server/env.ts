@@ -27,4 +27,9 @@ export const settings = {
   capBps: Number(process.env.DEFAULT_CAP_BPS ?? 2500),
   /** How long an approver's signature stays valid. */
   approvalTtlSeconds: Number(process.env.APPROVAL_TTL_SECONDS ?? 3600),
+  /**
+   * USDC a payer's wallet must keep on top of the amount they fund. Arc charges network fees in USDC and reserves the
+   * maximum fee up front from the same balance, so a wallet holding exactly the amount fails onchain.
+   */
+  feeBufferUsdc: BigInt(Math.round(Number(process.env.FEE_BUFFER_USDC ?? 0.25) * 1e6)),
 };

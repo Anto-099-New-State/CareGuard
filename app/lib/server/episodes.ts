@@ -10,7 +10,7 @@ import { formatAmount, type Currency } from "../money";
 import { payerFor, type Caller } from "./auth";
 import { agentSigner, send, type Signer } from "./chain";
 import { big, db, must, str, type ChargeRow, type EpisodeRow, type PayerRow, type PriceItemRow, type ProviderRow } from "./db";
-import { settings } from "./env";
+import { isLocal, settings } from "./env";
 import { UserError } from "./errors";
 import { canonicalJson, saltedHash } from "./hash";
 import { swapEurcToUsdc } from "./swap";
@@ -358,6 +358,18 @@ export async function fund(caller: Caller, episodeId: string, input: { amount: b
       usdcAmount = r.amountOut;
       return r.txHash;
     });
+  }
+
+  if (!isLocal) {
+    // Arc takes fees in USDC from the same balance, reserved up front: check there's headroom before sending.
+    const held = await publicClient.readContract({ address: config.usdc, abi: erc20Abi, functionName: "balanceOf", args: [signer.address] });
+    const needed = usdcAmount + settings.feeBufferUsdc;
+    if (held < needed) {
+      throw new UserError(
+        `Your wallet holds ${formatAmount(held)} USDC. Funding ${formatAmount(usdcAmount)} USDC needs about ${formatAmount(needed)} USDC, because Arc network fees (about ${formatAmount(settings.feeBufferUsdc)} USDC) are paid from the same balance. Add ${formatAmount(needed - held)} USDC or fund a smaller amount.`,
+        409,
+      );
+    }
   }
 
   await tracked({ episodeId, kind: "fund", payerId: payer.id, amount: usdcAmount, currency: "USDC" }, async () => {

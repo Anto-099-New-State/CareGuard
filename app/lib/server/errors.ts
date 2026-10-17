@@ -41,7 +41,10 @@ export function explainRevert(err: unknown): string | null {
   const revert = err.walk((e) => e instanceof ContractFunctionRevertedError);
   if (revert instanceof ContractFunctionRevertedError && revert.data?.errorName) {
     const f = plain[revert.data.errorName];
-    return f ? f(revert.data.args ?? []) : `The contract refused: ${revert.data.errorName}.`;
+    if (f) return f(revert.data.args ?? []);
+    // A plain require/revert string (e.g. from the USDC token) carries its own reason.
+    if (revert.data.errorName === "Error" && typeof revert.data.args?.[0] === "string") return `The transaction was refused: ${revert.data.args[0]}.`;
+    return `The contract refused: ${revert.data.errorName}.`;
   }
   return null;
 }

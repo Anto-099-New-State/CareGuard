@@ -11,7 +11,9 @@
     "test": "vitest run",
     "indexer": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx jobs/indexer.ts",
     "e2e": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/e2e-local.ts",
-    "circle:setup": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/circle-setup.ts"
+    "circle:setup": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/circle-setup.ts",
+    "e2e:testnet": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/e2e-testnet.ts",
+    "sweep:testnet": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/sweep-testnet.ts"
   },
   "dependencies": {
     "@circle-fin/adapter-circle-wallets": "^1.8.2",
