@@ -1,50 +1,58 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { createSiweMessage, generateSiweNonce } from "viem/siwe";
 import { Button } from "@/components/ui/Button";
-import { Field } from "@/components/ui/Field";
+import { config } from "@/lib/config";
+import { connectWallet, walletMessage } from "@/lib/client/wallet";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
+/** Sign-In with Ethereum: the wallet signs one message (no gas), Supabase verifies it and starts a session. */
 export function SignInForm() {
+  const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") ?? "/dashboard";
-  const [email, setEmail] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
-  const [error, setError] = useState(params.get("error") === "link" ? "That sign-in link has expired or was already used. Send a new one." : "");
+  const [state, setState] = useState<"idle" | "connecting" | "signing">("idle");
+  const [error, setError] = useState("");
 
-  const send = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const signIn = async () => {
     setError("");
-    setState("sending");
-    const { error } = await supabaseBrowser().auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
-    });
-    if (error) {
-      setError(`Couldn't send the link: ${error.message}`);
+    setState("connecting");
+    try {
+      const { wallet, address } = await connectWallet();
+      setState("signing");
+      const message = createSiweMessage({
+        domain: window.location.host,
+        address,
+        statement: "Sign in to CareGuard. This only proves you own this wallet; it doesn't move any money.",
+        uri: window.location.origin,
+        version: "1",
+        chainId: config.chainId,
+        nonce: generateSiweNonce(),
+        issuedAt: new Date(),
+      });
+      const signature = await wallet.signMessage({ account: address, message });
+      const { error } = await supabaseBrowser().auth.signInWithWeb3({ chain: "ethereum", message, signature });
+      if (error) throw new Error(`Sign-in failed: ${error.message}`);
+      router.push(`/onboarding?next=${encodeURIComponent(next)}`);
+      router.refresh();
+    } catch (err) {
+      setError(walletMessage(err));
       setState("idle");
-    } else {
-      setState("sent");
     }
   };
 
-  if (state === "sent") {
-    return (
-      <div role="status" className="flex flex-col gap-2 rounded-[14px] bg-ok-bg p-5 text-ok">
-        <strong>Check your email</strong>
-        <span className="text-sm text-ink">
-          We sent a sign-in link to {email}. It works once and expires in an hour.
-        </span>
-      </div>
-    );
-  }
-
   return (
-    <form onSubmit={send} className="flex flex-col gap-4">
-      <Field label="Email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+    <div className="flex flex-col gap-4">
+      <Button onClick={signIn} disabled={state !== "idle"} className="min-h-12 w-full text-base">
+        {state === "connecting" ? "Connecting your wallet…" : state === "signing" ? "Sign the message in your wallet…" : "Connect wallet"}
+      </Button>
       {error && <p role="alert" className="m-0 text-sm text-warn">{error}</p>}
-      <Button type="submit" disabled={state === "sending"}>{state === "sending" ? "Sending…" : "Email me a link"}</Button>
-    </form>
+      <p className="m-0 text-xs leading-relaxed text-muted">
+        You&apos;ll sign a short message to prove you own the wallet. It&apos;s free and moves no money. Use the wallet you&apos;ll pay from (or be paid
+        to, for hospitals) on Arc {config.network}.
+      </p>
+    </div>
   );
 }

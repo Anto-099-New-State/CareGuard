@@ -41,7 +41,7 @@ async function pendingRefund(owner: Address | null) {
   }
 }
 
-const TX_LABEL: Record<string, string> = { fund: "Funded", swap: "EURC → USDC swap", refund: "Refund" };
+const TX_LABEL: Record<string, string> = { fund: "Funded", refund: "Refund" };
 
 export default async function Pay({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -75,7 +75,7 @@ export default async function Pay({ params }: { params: Promise<{ id: string }> 
   const open = ["created", "funded", "active", "margin_call"].includes(ep.status);
   const canFund = open && !expired && ep.contract_episode_id !== null;
   const wallet = me.wallet_address as Address | null;
-  const [usdc, eurc, pending] = await Promise.all([wallet ? balance(config.usdc, wallet) : null, wallet ? balance(config.eurc, wallet) : null, pendingRefund(wallet)]);
+  const [usdc, pending] = await Promise.all([wallet ? balance(config.usdc, wallet) : null, pendingRefund(wallet)]);
   const charges = view.charges as unknown as PayerCharge[];
   const fmtDate = (d: Date) => d.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   const suggested = marginCall ? toUnits(marginCall.amount) : remaining;
@@ -113,7 +113,7 @@ export default async function Pay({ params }: { params: Promise<{ id: string }> 
           <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
             <strong>A refund is waiting for you: <Money value={pending} /></strong>
             <span className="text-sm text-muted">It couldn&apos;t be sent automatically, so the contract is holding it for you. Only your wallet can collect it.</span>
-            <ClaimRefundButton />
+            {wallet && <ClaimRefundButton payerWallet={wallet} />}
           </div>
         )}
 
@@ -129,8 +129,8 @@ export default async function Pay({ params }: { params: Promise<{ id: string }> 
               Funded <Money value={funded} /> of <Money value={owed} />
             </span>
           </div>
-          {canFund && (
-            <FundForm episodeId={id} defaultCurrency={me.currency} suggested={String(suggested)} eurcAvailable={!/^0x0+$/.test(config.eurc)} />
+          {canFund && wallet && (
+            <FundForm episodeId={id} contractEpisodeId={String(ep.contract_episode_id)} payerWallet={wallet} suggested={String(suggested)} />
           )}
           {open && expired && (
             <div className="flex flex-col gap-3 border-t border-line pt-5">
@@ -167,15 +167,15 @@ export default async function Pay({ params }: { params: Promise<{ id: string }> 
           ))}
         </dl>
 
-        {wallet && canFund && (
+        {wallet && (
           <section className="flex flex-col gap-2 rounded-2xl border border-line bg-surface p-4 text-sm">
             <span className="flex items-center justify-between gap-2">
-              <strong>Your CareGuard wallet</strong>
+              <strong>Paying from your wallet</strong>
               <CopyButton value={wallet} />
             </span>
             <code className="font-mono text-xs break-all text-ink">{wallet}</code>
             <span className="text-xs text-muted">
-              Holds <Money value={usdc ?? 0n} />{eurc !== null && <> and <Money value={eurc} currency="EURC" /></>}. Send USDC or EURC on Arc {config.network} to this address, then fund above. Keep about 0.25 USDC extra: Arc network fees are paid in USDC.
+              Holds <Money value={usdc ?? 0n} /> on Arc {config.network}. Refunds come back to this same wallet.
             </span>
           </section>
         )}

@@ -9,7 +9,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { ApprovalsIcon, DashboardIcon, EpisodesIcon, LedgerIcon, PriceListIcon } from "./icons";
 
 type Item = { href: string; label: string; icon: ReactNode };
-export type ShellUser = { name: string; email: string | null; initials: string } | null;
+export type ShellUser = { name: string; wallet: string | null; role: string; initials: string } | null;
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
@@ -98,8 +98,12 @@ function UserBlock({ user }: { user: ShellUser }) {
       </span>
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-sm font-semibold">{user.name}</span>
+        <span className="truncate text-[11px] text-muted">
+          {user.role}
+          {user.wallet && <> · <span className="font-mono">{short(user.wallet)}</span></>}
+        </span>
         <form action="/auth/signout" method="post">
-          <button type="submit" className="hover-link cursor-pointer border-0 bg-transparent p-0 text-xs font-semibold text-muted">
+          <button type="submit" className="hover-link cursor-pointer border-0 bg-transparent p-0 text-left text-xs font-semibold text-muted">
             Sign out
           </button>
         </form>

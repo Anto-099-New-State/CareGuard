@@ -1,20 +1,18 @@
-import { parseEventLogs, type Address, type Hash, type Hex } from "viem";
+import { getAddress, isAddress, parseEventLogs, type Address, type Hash, type Hex } from "viem";
 import { chargeJudge } from "../agent/llm";
 import { marginCallsNeeded, reviewCharge, type EpisodeState, type PastCharge } from "../agent/review";
 import { sizeGuarantee, type QuoteLine } from "../agent/sizing";
 import { publicClient } from "../chains";
 import { config } from "../config";
-import { CONTRACT_STATUS, DECISION_KIND, careGuard, careGuardAbi, erc20Abi } from "../contract";
+import { CONTRACT_STATUS, DECISION_KIND, careGuard, careGuardAbi } from "../contract";
 import { approveChargeTypes, eip712Domain } from "../eip712";
 import { formatAmount, type Currency } from "../money";
 import { payerFor, type Caller } from "./auth";
-import { agentSigner, send, type Signer } from "./chain";
+import { agentSigner, send } from "./chain";
 import { big, db, must, str, type ChargeRow, type EpisodeRow, type PayerRow, type PriceItemRow, type ProviderRow } from "./db";
-import { isLocal, settings } from "./env";
+import { settings } from "./env";
 import { UserError } from "./errors";
 import { canonicalJson, saltedHash } from "./hash";
-import { swapEurcToUsdc } from "./swap";
-import { createWallet } from "./wallets";
 
 type DecisionKind = (typeof DECISION_KIND)[number];
 type DecisionOutcome = "sized" | "pay" | "escalate" | "margin_call" | "reject" | "approve" | "discharge";
@@ -38,11 +36,11 @@ function contractId(ep: EpisodeRow): bigint {
   return BigInt(ep.contract_episode_id);
 }
 
-async function loadQuote(episodeId: string): Promise<QuoteLine[]> {
+async function loadQuote(episodeId: string): Promise<(QuoteLine & { label: string })[]> {
   const rows = must(
-    await db().from("quote_items").select("price_item_id, quantity, price_items(code, unit_price_usdc)").eq("episode_id", episodeId),
-  ) as unknown as { price_item_id: string; quantity: number; price_items: { code: string; unit_price_usdc: number } }[];
-  return rows.map((r) => ({ priceItemId: r.price_item_id, code: r.price_items.code, unitPrice: big(r.price_items.unit_price_usdc), quantity: r.quantity }));
+    await db().from("quote_items").select("price_item_id, quantity, price_items(code, label, unit_price_usdc)").eq("episode_id", episodeId),
+  ) as unknown as { price_item_id: string; quantity: number; price_items: { code: string; label: string; unit_price_usdc: number } }[];
+  return rows.map((r) => ({ priceItemId: r.price_item_id, code: r.price_items.code, label: r.price_items.label, unitPrice: big(r.price_items.unit_price_usdc), quantity: r.quantity }));
 }
 
 async function loadPayers(episodeId: string): Promise<Record<"coverer" | "family", PayerRow>> {
@@ -56,11 +54,6 @@ async function loadPayers(episodeId: string): Promise<Record<"coverer" | "family
 async function providerOf(ep: EpisodeRow): Promise<ProviderRow> {
   return must(await db().from("providers").select("*").eq("id", ep.provider_id).single()) as ProviderRow;
 }
-
-const signerOf = (row: { wallet_address: string | null; wallet_id: string | null }): Signer => {
-  if (!row.wallet_address) throw new UserError("This party has no wallet yet.", 409);
-  return { address: row.wallet_address as Address, walletId: row.wallet_id };
-};
 
 /** Block time, which is what the contract compares expiry and deadlines against. */
 async function chainNow(): Promise<bigint> {
@@ -165,17 +158,25 @@ async function logDecisionOnchain(ep: EpisodeRow, decisionId: string, kind: Deci
 
 // ------------------------------------------------------------------ provider setup
 
-export async function upsertProvider(caller: Caller, name: string): Promise<ProviderRow> {
-  if (!name.trim()) throw new UserError("Enter the clinic or hospital name.");
-  const existing = (await db().from("providers").select("*").eq("user_id", caller.userId).maybeSingle()).data as ProviderRow | null;
-  if (existing) {
-    return must(await db().from("providers").update({ name: name.trim() }).eq("id", existing.id).select().single()) as ProviderRow;
+/**
+ * First sign-in: the wallet picks a role. Hospitals also get a provider row, paid at the wallet they signed in with.
+ * Safe to call again: it updates the name and never changes the role.
+ */
+export async function createProfile(caller: Caller, input: { role: "provider" | "patient"; name: string }) {
+  const name = input.name.trim();
+  if (!name) throw new UserError(input.role === "provider" ? "Enter the hospital or clinic name." : "Enter your name.");
+  const wallet = caller.wallet.toLowerCase();
+  const existing = (await db().from("profiles").select("*").eq("user_id", caller.userId).maybeSingle()).data as { role: string } | null;
+  if (existing && existing.role !== input.role) throw new UserError("This wallet already has a role. Use a different wallet for the other role.", 409);
+  const profile = must(
+    await db().from("profiles").upsert({ user_id: caller.userId, wallet_address: wallet, role: input.role, display_name: name }).select().single(),
+  );
+  if (input.role === "provider") {
+    const prov = (await db().from("providers").select("id").eq("user_id", caller.userId).maybeSingle()).data;
+    if (prov) await db().from("providers").update({ name }).eq("id", prov.id);
+    else must(await db().from("providers").insert({ user_id: caller.userId, name, wallet_address: caller.wallet }).select().single());
   }
-  const row = must(await db().from("providers").insert({ user_id: caller.userId, name: name.trim() }).select().single()) as ProviderRow;
-  const wallet = await createWallet("provider", row.id);
-  return must(
-    await db().from("providers").update({ wallet_id: wallet.walletId, wallet_address: wallet.address }).eq("id", row.id).select().single(),
-  ) as ProviderRow;
+  return profile;
 }
 
 export type PriceItemInput = { code: string; label: string; unitPrice: bigint };
@@ -259,19 +260,21 @@ export async function createEpisode(provider: ProviderRow, input: NewEpisode) {
   return { episode: ep, sizing };
 }
 
-export type PayerInput = { email: string; name: string; currency: Currency };
+export type PayerInput = { wallet: string; name: string };
 
-/** Flow 1, steps 2–5: add both payers, create their wallets, and create the episode onchain. */
+/** Flow 1, steps 2–5: add both payers by wallet and create the episode onchain. */
 export async function addPayers(provider: ProviderRow, episodeId: string, input: { coverer: PayerInput; family: PayerInput }) {
   const ep = await loadEpisode(episodeId);
   ownEpisode(provider, ep);
   if (ep.contract_episode_id !== null) throw new UserError("Payers are already set for this episode.", 409);
   for (const p of [input.coverer, input.family]) {
-    if (!/^\S+@\S+\.\S+$/.test(p.email)) throw new UserError(`“${p.email}” isn't an email address.`);
+    if (!isAddress(p.wallet.trim())) throw new UserError(`“${p.wallet}” isn't a wallet address. It should look like 0x followed by 40 characters.`);
     if (!p.name.trim()) throw new UserError("Enter a name for each payer.");
   }
-  if (input.coverer.email.toLowerCase() === input.family.email.toLowerCase()) throw new UserError("Coverer and family need different emails.");
-  if (!provider.wallet_address) throw new UserError("Your provider wallet isn't ready yet.", 409);
+  const wallets = [input.coverer.wallet, input.family.wallet, provider.wallet_address ?? ""].map((w) => w.trim().toLowerCase());
+  if (wallets[0] === wallets[1]) throw new UserError("The coverer and the family need different wallets.");
+  if (wallets[0] === wallets[2] || wallets[1] === wallets[2]) throw new UserError("A payer can't use the hospital's own wallet.");
+  if (!provider.wallet_address) throw new UserError("Your hospital wallet is missing. Sign in again with your wallet.", 409);
 
   const lines = await loadQuote(ep.id);
   // Only the coverer/family split is used here; the guarantee and cap were fixed at creation.
@@ -293,14 +296,17 @@ export async function addPayers(provider: ProviderRow, episodeId: string, input:
       row = must(
         await db()
           .from("payers")
-          .insert({ episode_id: ep.id, role, email: input[role].email.trim(), display_name: input[role].name.trim(), currency: input[role].currency, owed_usdc: str(owes[role]) })
+          .insert({
+            episode_id: ep.id,
+            role,
+            display_name: input[role].name.trim(),
+            wallet_address: getAddress(input[role].wallet.trim()),
+            currency: "USDC",
+            owed_usdc: str(owes[role]),
+          })
           .select()
           .single(),
       ) as PayerRow;
-    }
-    if (!row.wallet_address) {
-      const w = await createWallet(role, row.id);
-      row = must(await db().from("payers").update({ wallet_id: w.walletId, wallet_address: w.address }).eq("id", row.id).select().single()) as PayerRow;
     }
     rows[role] = row;
   }
@@ -342,49 +348,48 @@ export async function addPayers(provider: ProviderRow, episodeId: string, input:
 
 // ------------------------------------------------------------------ funding
 
-/** Flow 2: a payer funds their share, in USDC or EURC (swapped to USDC first). */
-export async function fund(caller: Caller, episodeId: string, input: { amount: bigint; currency: Currency }) {
+/**
+ * Flow 2: the payer funds from their own wallet (approve + fund), then reports the transaction here.
+ * We trust only the chain: the receipt must contain this episode's Funded event from the caller's wallet.
+ * Reporting the same transaction twice changes nothing.
+ */
+export async function recordFunding(caller: Caller, episodeId: string, txHash: Hash) {
   const ep = await loadEpisode(episodeId);
   const payer = await payerFor(caller, episodeId);
-  if (!payer) throw new UserError("You're not a payer on this episode.", 403);
+  if (!payer?.wallet_address) throw new UserError("Your wallet isn't a payer on this episode.", 403);
   const id = contractId(ep);
-  if (input.amount <= 0n) throw new UserError("Enter an amount above zero.");
-  const signer = signerOf(payer);
 
-  let usdcAmount = input.amount;
-  if (input.currency === "EURC") {
-    await tracked({ episodeId, kind: "swap", payerId: payer.id, amount: input.amount, currency: "EURC" }, async () => {
-      const r = await swapEurcToUsdc(signer, input.amount);
-      usdcAmount = r.amountOut;
-      return r.txHash;
-    });
+  const { data: seen } = await db().from("transactions").select("id").eq("network", config.network).eq("tx_hash", txHash).maybeSingle();
+  if (seen) return { episode: await refreshFromChain(ep), funded: 0n, alreadyRecorded: true };
+
+  let receipt;
+  try {
+    receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: 60_000 });
+  } catch {
+    throw new UserError("Couldn't find that transaction on Arc yet. Wait a moment and try again.", 404);
   }
+  if (receipt.status !== "success") throw new UserError("That transaction failed onchain, so nothing was funded.", 409);
+  const funded = parseEventLogs({ abi: careGuardAbi, eventName: "Funded", logs: receipt.logs }).filter(
+    (l) => l.address.toLowerCase() === careGuard.address.toLowerCase() && l.args.episodeId === id && l.args.payer.toLowerCase() === payer.wallet_address!.toLowerCase(),
+  );
+  if (funded.length === 0) throw new UserError("That transaction didn't fund this episode from your wallet.", 409);
+  const amount = funded.reduce((sum, l) => sum + l.args.amount, 0n);
 
-  if (!isLocal) {
-    // Arc takes fees in USDC from the same balance, reserved up front: check there's headroom before sending.
-    const held = await publicClient.readContract({ address: config.usdc, abi: erc20Abi, functionName: "balanceOf", args: [signer.address] });
-    const needed = usdcAmount + settings.feeBufferUsdc;
-    if (held < needed) {
-      throw new UserError(
-        `Your wallet holds ${formatAmount(held)} USDC. Funding ${formatAmount(usdcAmount)} USDC needs about ${formatAmount(needed)} USDC, because Arc network fees (about ${formatAmount(settings.feeBufferUsdc)} USDC) are paid from the same balance. Add ${formatAmount(needed - held)} USDC or fund a smaller amount.`,
-        409,
-      );
-    }
-  }
-
-  await tracked({ episodeId, kind: "fund", payerId: payer.id, amount: usdcAmount, currency: "USDC" }, async () => {
-    await send(signer, { address: config.usdc, abi: erc20Abi, functionName: "approve", args: [careGuard.address, usdcAmount] });
-    return send(signer, { ...careGuard, functionName: "fund", args: [id, usdcAmount] });
-  });
-
-  must(await db().from("payers").update({ funded_usdc: str(big(payer.funded_usdc) + usdcAmount) }).eq("id", payer.id).select().single());
+  must(
+    await db()
+      .from("transactions")
+      .insert({ episode_id: ep.id, kind: "fund", payer_id: payer.id, amount: str(amount), currency: "USDC", tx_hash: txHash, status: "confirmed", network: config.network })
+      .select()
+      .single(),
+  );
+  must(await db().from("payers").update({ funded_usdc: str(big(payer.funded_usdc) + amount) }).eq("id", payer.id).select().single());
   const fresh = await refreshFromChain(ep);
 
   // Charges that were waiting for this top-up get another review.
   const waiting = must(await db().from("charges").select("id").eq("episode_id", ep.id).eq("status", "waiting").order("number")) as { id: string }[];
   for (const w of waiting) await processCharge(w.id);
 
-  return { episode: fresh, funded: usdcAmount };
+  return { episode: fresh, funded: amount, alreadyRecorded: false };
 }
 
 // ------------------------------------------------------------------ charges
@@ -641,7 +646,7 @@ export async function episodeView(episodeId: string, access: { provider: boolean
       : db().from("charges").select("id, number, quantity, amount_usdc, covered_usdc, status, tx_hash, created_at, price_items(label)").eq("episode_id", ep.id).order("number"),
     db().from("decisions").select(full ? "*" : "id, kind, outcome, reason, hash, tx_hash, created_at, charge_id").eq("episode_id", ep.id).order("created_at"),
     db().from("transactions").select("*").eq("episode_id", ep.id).order("created_at"),
-    full ? loadQuote(ep.id) : Promise.resolve(null),
+    loadQuote(ep.id),
   ]);
   const episode = full ? ep : { ...ep, description: undefined };
   return {
@@ -684,34 +689,4 @@ export async function traction() {
     };
   };
   return { testnet: byNetwork("testnet"), mainnet: byNetwork("mainnet") };
-}
-
-// ------------------------------------------------------------------ deferred refunds
-
-/** Refunds the contract couldn't send automatically, per wallet the caller pays from. */
-export async function pendingRefundsFor(caller: Caller) {
-  const rows = (must(await db().from("payers").select("id, wallet_id, wallet_address").eq("user_id", caller.userId)) as Pick<PayerRow, "id" | "wallet_id" | "wallet_address">[]).filter(
-    (r) => r.wallet_address,
-  );
-  const wallets = [...new Map(rows.map((r) => [r.wallet_address!.toLowerCase(), r])).values()];
-  return Promise.all(
-    wallets.map(async (r) => ({
-      signer: signerOf(r),
-      amount: await publicClient.readContract({ ...careGuard, functionName: "pendingRefunds", args: [r.wallet_address as Address] }),
-    })),
-  );
-}
-
-/** Claims every deferred refund the caller has. Money can only go back to the payer's own wallet. */
-export async function claimRefunds(caller: Caller) {
-  const pending = (await pendingRefundsFor(caller)).filter((p) => p.amount > 0n);
-  if (pending.length === 0) throw new UserError("There's no refund waiting for you.", 409);
-  const claimed: { amount: bigint; txHash: Hash }[] = [];
-  for (const p of pending) {
-    const txHash = await tracked({ episodeId: null, kind: "refund", amount: p.amount, currency: "USDC" }, () =>
-      send(p.signer, { ...careGuard, functionName: "claimRefund", args: [] }),
-    );
-    claimed.push({ amount: p.amount, txHash });
-  }
-  return { claimed };
 }

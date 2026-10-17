@@ -13,7 +13,7 @@ export default function SignIn() {
         <div className="flex flex-col gap-2">
           <h1 className="m-0 font-display text-[28px] font-bold tracking-[-0.02em]">Sign in</h1>
           <p className="m-0 text-sm leading-relaxed text-muted">
-            We&apos;ll email you a link. No password and no seed phrase: your wallet is created for you.
+            Connect your wallet. Hospitals are paid to it; patients and families pay from it.
           </p>
         </div>
         <Suspense>

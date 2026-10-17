@@ -14,8 +14,16 @@ function agentAddress(): string | null {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await getSession();
-  const name = s?.provider?.name ?? s?.caller.email ?? null;
-  const user: ShellUser = name ? { name, email: s?.caller.email ?? null, initials: name.replace(/[^A-Za-z0-9 ]/g, "").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?" } : null;
+  const wallet = s?.caller.wallet ?? null;
+  const name = s?.profile?.display_name ?? s?.provider?.name ?? (s?.approver ? "Approver" : null);
+  const user: ShellUser = s
+    ? {
+        name: name ?? `${wallet!.slice(0, 6)}…${wallet!.slice(-4)}`,
+        wallet,
+        role: s.provider ? "Hospital" : s.approver && !s.profile ? "Approver" : "Patient",
+        initials: (name ?? "0x").replace(/[^A-Za-z0-9 ]/g, "").split(/\s+/).map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() || "?",
+      }
+    : null;
 
   return (
     <div className="min-h-screen md:flex">

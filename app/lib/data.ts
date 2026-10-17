@@ -67,17 +67,33 @@ export async function getDashboard(s: Session): Promise<DashboardData> {
   };
 }
 
-/** Episodes where the signed-in user is invited as a payer (matched by user or by email). */
+/** Episodes where the signed-in wallet is a payer (matched by account or by wallet address). */
 export async function getPayerEpisodes(s: Session) {
-  const email = s.caller.email?.toLowerCase() ?? "";
+  const wallet = s.caller.wallet.toLowerCase();
   const { data } = await db()
     .from("payers")
-    .select("role, owed_usdc, funded_usdc, episodes(id, patient_label, status, contract_episode_id, providers(name))")
-    .or(`user_id.eq.${s.caller.userId}${email ? `,email.ilike.${email}` : ""}`);
-  return (data ?? []) as unknown as {
-    role: "coverer" | "family";
-    owed_usdc: number;
-    funded_usdc: number;
-    episodes: { id: string; patient_label: string; status: EpisodeRow["status"]; contract_episode_id: number | null; providers: { name: string } };
-  }[];
+    .select("id, role, owed_usdc, funded_usdc, wallet_address, episodes(id, patient_label, status, contract_episode_id, guarantee_usdc, paid_total, coverer_balance, family_balance, expires_at, created_at, providers(name))")
+    .or(`user_id.eq.${s.caller.userId},wallet_address.ilike.${wallet}`);
+  return ((data ?? []) as unknown as PayerEpisode[]).sort((a, b) => b.episodes.created_at.localeCompare(a.episodes.created_at));
+}
+
+export type PayerEpisode = {
+  id: string;
+  role: "coverer" | "family";
+  owed_usdc: number;
+  funded_usdc: number;
+  wallet_address: string;
+  episodes: {
+    id: string;
+    patient_label: string;
+    status: EpisodeRow["status"];
+    contract_episode_id: number | null;
+    guarantee_usdc: number | null;
+    paid_total: number;
+    coverer_balance: number;
+    family_balance: number;
+    expires_at: string | null;
+    created_at: string;
+    providers: { name: string };
+  };
 }

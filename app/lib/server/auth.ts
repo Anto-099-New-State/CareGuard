@@ -1,19 +1,36 @@
 import { createServerClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
 import { cookies, headers } from "next/headers";
+import { getAddress, isAddress, type Address } from "viem";
+import { publicClient } from "../chains";
+import { careGuard } from "../contract";
 import { db, must, type PayerRow, type ProviderRow } from "./db";
 import { need } from "./env";
 import { UserError } from "./errors";
 
-export type Caller = { userId: string; email: string | null };
+/** The signed-in user and the wallet they signed in with (Sign-In with Ethereum). */
+export type Caller = { userId: string; wallet: Address };
 
-/** The signed-in user, from the Supabase session cookie or an `Authorization: Bearer` token. */
-export async function getCaller(): Promise<Caller | null> {
+/**
+ * The wallet comes from the user's web3 identity (`web3:ethereum:0x…`), which Supabase sets from the verified
+ * signature. Never from user_metadata: users can edit that themselves.
+ */
+function walletOf(user: User): Address | null {
+  for (const identity of user.identities ?? []) {
+    if (identity.provider !== "web3") continue;
+    const sub = String(identity.identity_data?.sub ?? identity.id ?? "");
+    const m = sub.match(/^web3:ethereum:(0x[0-9a-fA-F]{40})$/);
+    if (m && isAddress(m[1])) return getAddress(m[1]);
+  }
+  return null;
+}
+
+async function userFromRequest(): Promise<User | null> {
   const auth = (await headers()).get("authorization");
   if (auth?.startsWith("Bearer ")) {
     const { data } = await db().auth.getUser(auth.slice(7));
-    return data.user ? { userId: data.user.id, email: data.user.email ?? null } : null;
+    return data.user ?? null;
   }
-
   const store = await cookies();
   const supabase = createServerClient(need("NEXT_PUBLIC_SUPABASE_URL"), need("NEXT_PUBLIC_SUPABASE_ANON_KEY"), {
     cookies: {
@@ -28,21 +45,43 @@ export async function getCaller(): Promise<Caller | null> {
     },
   });
   const { data } = await supabase.auth.getUser();
-  return data.user ? { userId: data.user.id, email: data.user.email ?? null } : null;
+  return data.user ?? null;
+}
+
+/** The signed-in wallet user, from the Supabase session cookie or an `Authorization: Bearer` token. */
+export async function getCaller(): Promise<Caller | null> {
+  const user = await userFromRequest();
+  if (!user) return null;
+  const wallet = walletOf(user);
+  return wallet ? { userId: user.id, wallet } : null;
 }
 
 export async function requireCaller(): Promise<Caller> {
   const caller = await getCaller();
-  if (!caller) throw new UserError("Sign in to continue.", 401);
+  if (!caller) throw new UserError("Connect your wallet and sign in to continue.", 401);
   return caller;
+}
+
+export type Profile = { user_id: string; wallet_address: string; role: "provider" | "patient"; display_name: string };
+
+export async function getProfile(caller: Caller): Promise<Profile | null> {
+  const { data } = await db().from("profiles").select("*").eq("user_id", caller.userId).maybeSingle();
+  return (data as Profile | null) ?? null;
 }
 
 export async function requireProvider(caller: Caller): Promise<ProviderRow> {
   const res = await db().from("providers").select("*").eq("user_id", caller.userId).maybeSingle();
-  return must(res, "Set up your provider profile first (POST /api/provider).") as ProviderRow;
+  return must(res, "This wallet isn't set up as a hospital or clinic. Choose “Hospital” when you first sign in.") as ProviderRow;
 }
 
+/** The approver is whoever holds the key the contract checks signatures against (or a listed team account). */
 export async function isApprover(caller: Caller): Promise<boolean> {
+  try {
+    const onchain = await publicClient.readContract({ ...careGuard, functionName: "approver" });
+    if (onchain.toLowerCase() === caller.wallet.toLowerCase()) return true;
+  } catch {
+    // Contract not reachable: fall back to the team list.
+  }
   const { data } = await db().from("approvers").select("user_id").eq("user_id", caller.userId).maybeSingle();
   return !!data;
 }
@@ -51,18 +90,15 @@ export async function requireApprover(caller: Caller) {
   if (!(await isApprover(caller))) throw new UserError("Only the CareGuard approver can do that.", 403);
 }
 
-/**
- * The caller's payer row on an episode. Payers are invited by email, so the first time they sign in
- * with that email we link their account to the row.
- */
+/** The caller's payer row on an episode, matched by the wallet they signed in with; links the row on first visit. */
 export async function payerFor(caller: Caller, episodeId: string): Promise<PayerRow | null> {
   const rows = must(await db().from("payers").select("*").eq("episode_id", episodeId)) as PayerRow[];
-  const mine = rows.find((p) => p.user_id === caller.userId);
-  if (mine) return mine;
-  const invited = caller.email ? rows.find((p) => !p.user_id && p.email.toLowerCase() === caller.email!.toLowerCase()) : undefined;
-  if (!invited) return null;
-  must(await db().from("payers").update({ user_id: caller.userId }).eq("id", invited.id).select().single());
-  return { ...invited, user_id: caller.userId };
+  const mine = rows.find((p) => p.user_id === caller.userId || p.wallet_address?.toLowerCase() === caller.wallet.toLowerCase());
+  if (!mine) return null;
+  if (mine.user_id !== caller.userId) {
+    must(await db().from("payers").update({ user_id: caller.userId }).eq("id", mine.id).select().single());
+  }
+  return { ...mine, user_id: caller.userId };
 }
 
 /** Which parts of an episode the caller may see. */

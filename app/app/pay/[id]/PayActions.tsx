@@ -6,12 +6,19 @@ import { Button } from "@/components/ui/Button";
 import { AmountField } from "@/components/ui/Field";
 import { TxStatus, type TxState } from "@/components/ui/Tx";
 import { api } from "@/lib/client/api";
-import { formatAmount, formatMoney, parseAmount } from "@/lib/money";
+import { arc } from "@/lib/chains";
+import { connectWallet, publicClient, WalletError, walletMessage } from "@/lib/client/wallet";
+import { config } from "@/lib/config";
+import { careGuard, erc20Abi } from "@/lib/contract";
+import { formatAmount, parseAmount } from "@/lib/money";
 
-export function FundForm({ episodeId, defaultCurrency, suggested, eurcAvailable }: { episodeId: string; defaultCurrency: "USDC" | "EURC"; suggested: string; eurcAvailable: boolean }) {
+const FEE_BUFFER = 250_000n; // keep ~0.25 USDC: Arc fees are paid in USDC and reserved up front
+
+/** The payer funds from their own wallet: approve USDC (if needed), call fund, then the server verifies the receipt. */
+export function FundForm({ episodeId, contractEpisodeId, payerWallet, suggested }: { episodeId: string; contractEpisodeId: string; payerWallet: string; suggested: string }) {
   const router = useRouter();
-  const [currency, setCurrency] = useState<"USDC" | "EURC">(eurcAvailable ? defaultCurrency : "USDC");
   const [amount, setAmount] = useState(BigInt(suggested) > 0n ? formatAmount(BigInt(suggested)).replace(/,/g, "") : "");
+  const [step, setStep] = useState("");
   const [tx, setTx] = useState<TxState | null>(null);
   const [error, setError] = useState("");
 
@@ -27,36 +34,42 @@ export function FundForm({ episodeId, defaultCurrency, suggested, eurcAvailable 
     }
     setTx({ status: "pending" });
     try {
-      const res = await api<{ funded: string }>(`/api/episodes/${episodeId}/fund`, { body: { amount: formatAmount(units).replace(/,/g, ""), currency } });
-      setTx({ status: "confirmed" });
-      setError("");
-      if (currency === "EURC") setError(`${formatMoney(units, "EURC")} → ${formatMoney(BigInt(res.funded))} after the swap.`);
+      const { wallet, address } = await connectWallet();
+      if (address.toLowerCase() !== payerWallet.toLowerCase()) {
+        throw new WalletError(`This treatment is funded from ${payerWallet.slice(0, 6)}…${payerWallet.slice(-4)}. Switch to that account in your wallet.`);
+      }
+      const held = await publicClient.readContract({ address: config.usdc, abi: erc20Abi, functionName: "balanceOf", args: [address] });
+      if (held < units + FEE_BUFFER) {
+        throw new WalletError(`Your wallet holds ${formatAmount(held)} USDC. Funding ${formatAmount(units)} USDC needs about ${formatAmount(units + FEE_BUFFER)} USDC, because Arc network fees are paid in USDC too.`);
+      }
+      const allowance = await publicClient.readContract({ address: config.usdc, abi: erc20Abi, functionName: "allowance", args: [address, careGuard.address] });
+      if (allowance < units) {
+        setStep("Step 1 of 2: allow the CareGuard contract to take this amount");
+        const approveHash = await wallet.writeContract({ account: address, chain: arc, address: config.usdc, abi: erc20Abi, functionName: "approve", args: [careGuard.address, units] });
+        await publicClient.waitForTransactionReceipt({ hash: approveHash });
+      }
+      setStep(allowance < units ? "Step 2 of 2: fund your share" : "Fund your share");
+      const hash = await wallet.writeContract({ account: address, chain: arc, ...careGuard, functionName: "fund", args: [BigInt(contractEpisodeId), units] });
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      if (receipt.status !== "success") throw new WalletError("The funding transaction failed onchain. Nothing was taken.");
+      setStep("");
+      await api(`/api/episodes/${episodeId}/fund`, { body: { txHash: hash } });
+      setTx({ status: "confirmed", hash });
       router.refresh();
     } catch (err) {
-      setTx({ status: "failed", error: err instanceof Error ? err.message : "Funding didn't go through." });
+      setStep("");
+      setTx({ status: "failed", error: walletMessage(err) });
     }
   };
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-        <legend className="mb-2 text-[13px] font-semibold">Pay with</legend>
-        <div className="grid grid-cols-2 gap-2">
-          {(["EURC", "USDC"] as const).map((c) => (
-            <label key={c} className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 text-sm font-bold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-strong ${currency === c ? "border-strong bg-chip text-strong" : "border-line"} ${c === "EURC" && !eurcAvailable ? "cursor-not-allowed opacity-40" : ""}`}>
-              <input type="radio" name="currency" value={c} checked={currency === c} disabled={c === "EURC" && !eurcAvailable} onChange={() => setCurrency(c)} className="sr-only" />
-              {c}
-            </label>
-          ))}
-        </div>
-        {currency === "EURC" && <span className="text-xs text-muted">EURC is swapped to USDC first; the contract holds USDC only.</span>}
-        {!eurcAvailable && <span className="text-xs text-muted">EURC isn&apos;t available on this network.</span>}
-      </fieldset>
-      <AmountField label="Amount" currency={currency} value={amount} onChange={(e) => setAmount(e.target.value)} />
-      {tx && <TxStatus state={tx} label={currency === "EURC" ? "Swap and fund" : "Funding"} />}
-      {error && <p className={`m-0 text-sm ${tx?.status === "confirmed" ? "text-muted" : "text-warn"}`} role={tx?.status === "confirmed" ? "status" : "alert"}>{error}</p>}
+      <AmountField label="Amount" currency="USDC" value={amount} onChange={(e) => setAmount(e.target.value)} hint="Paid in USDC from your wallet. Keep about 0.25 USDC extra for the network fee." />
+      {step && <p role="status" className="m-0 text-sm font-semibold text-strong">{step}</p>}
+      {tx && <TxStatus state={tx} label="Funding" />}
+      {error && <p role="alert" className="m-0 text-sm text-warn">{error}</p>}
       <Button type="submit" disabled={tx?.status === "pending"} className="min-h-12 w-full text-base">
-        {tx?.status === "pending" ? "Funding…" : "Fund my share"}
+        {tx?.status === "pending" ? "Confirm in your wallet…" : "Fund my share"}
       </Button>
     </form>
   );
@@ -104,17 +117,21 @@ export function CopyButton({ value }: { value: string }) {
   );
 }
 
-export function ClaimRefundButton() {
+/** Collects a refund the contract couldn't send automatically. Only the payer's own wallet can call it. */
+export function ClaimRefundButton({ payerWallet }: { payerWallet: string }) {
   const router = useRouter();
   const [tx, setTx] = useState<TxState | null>(null);
   const run = async () => {
     setTx({ status: "pending" });
     try {
-      const res = await api<{ claimed: { txHash: string }[] }>("/api/refunds/claim", { body: {} });
-      setTx({ status: "confirmed", hash: res.claimed[0]?.txHash });
+      const { wallet, address } = await connectWallet();
+      if (address.toLowerCase() !== payerWallet.toLowerCase()) throw new WalletError(`Switch to ${payerWallet.slice(0, 6)}…${payerWallet.slice(-4)} in your wallet to claim.`);
+      const hash = await wallet.writeContract({ account: address, chain: arc, ...careGuard, functionName: "claimRefund", args: [] });
+      await publicClient.waitForTransactionReceipt({ hash });
+      setTx({ status: "confirmed", hash });
       router.refresh();
     } catch (err) {
-      setTx({ status: "failed", error: err instanceof Error ? err.message : "Couldn't claim the refund." });
+      setTx({ status: "failed", error: walletMessage(err) });
     }
   };
   return (
