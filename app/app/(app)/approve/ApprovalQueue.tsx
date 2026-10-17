@@ -92,7 +92,7 @@ function Row({ item, approver, onDone }: { item: QueueItem; approver: Address; o
   return (
     <li className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-5 focus-within:border-strong">
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-1.5">
           <span className="flex flex-wrap items-center gap-2">
             <strong className="text-[15px]">
               #{item.charge.number} {item.charge.price_items?.label ?? "Off-list charge"}
@@ -106,7 +106,7 @@ function Row({ item, approver, onDone }: { item: QueueItem; approver: Address; o
           </p>
           {item.charge.description && <span className="text-xs text-muted">Provider note: {item.charge.description}</span>}
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-col items-start gap-1 sm:items-end">
           <Money value={item.charge.amount_usdc} display className="text-2xl font-bold" />
           <span className="text-xs text-muted">
             <Money value={item.charge.covered_usdc} /> coverer · <Money value={BigInt(String(item.charge.amount_usdc)) - BigInt(String(item.charge.covered_usdc))} /> family
