@@ -21,6 +21,9 @@ const qty = (q: string) => (/^\d+$/.test(q) ? Number(q) : 0);
 
 export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: { contingencyPct: number; capPct: number } }) {
   const [patientLabel, setPatientLabel] = useState("");
+  const [patientWallet, setPatientWallet] = useState("");
+  // Usually the patient pays what isn't covered; untick when a relative pays instead.
+  const [patientPays, setPatientPays] = useState(true);
   const [description, setDescription] = useState("");
   const [lines, setLines] = useState<Line[]>([newLine(items[0]?.id)]);
   const [covered, setCovered] = useState<string[]>([]);
@@ -61,6 +64,7 @@ export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: {
     setError("");
     const valid = lines.filter((l) => l.priceItemId && qty(l.quantity) > 0);
     if (!patientLabel.trim()) return setError("Enter how to refer to the patient, e.g. “Maria L.”. No medical details.");
+    if (!/^0x[0-9a-fA-F]{40}$/.test(patientWallet.trim())) return setError("Enter the patient's wallet address: 0x followed by 40 characters.");
     if (valid.length !== lines.length) return setError("Each quote line needs an item and a whole-number quantity.");
     const ids = valid.map((l) => l.priceItemId);
     if (new Set(ids).size !== ids.length) return setError("Each item can appear once; raise its quantity instead.");
@@ -69,6 +73,7 @@ export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: {
       const res = await api<{ episode: { id: string }; sizing: Sizing }>("/api/episodes", {
         body: {
           patientLabel,
+          patientWallet: patientWallet.trim(),
           description,
           lines: valid.map((l) => ({ priceItemId: l.priceItemId, quantity: qty(l.quantity) })),
           contingencyPct: Number(contingencyPct),
@@ -91,7 +96,8 @@ export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: {
     setError("");
     setTx({ status: "pending" });
     try {
-      const res = await api<{ txHash: string }>(`/api/episodes/${created.id}/payers`, { body: payers });
+      const family = patientPays ? { wallet: patientWallet.trim(), name: patientLabel.trim() } : payers.family;
+      const res = await api<{ txHash: string }>(`/api/episodes/${created.id}/payers`, { body: { coverer: payers.coverer, family } });
       setTx({ status: "confirmed", hash: res.txHash });
     } catch (err) {
       setTx({ status: "failed", error: err instanceof Error ? err.message : "Couldn't create the episode onchain." });
@@ -119,9 +125,23 @@ export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: {
         </Card>
 
         <Card title="Add the payers">
-          <p className="m-0 text-sm text-muted">Ask each payer for the wallet address they&apos;ll pay from. They sign in with that wallet to see the quote and fund their share.</p>
+          <p className="m-0 text-sm text-muted">
+            The coverer pays the covered items; the family payer pays the rest. Each signs in with their wallet to see the quote and fund their share. {patientLabel} can always follow the treatment from their own wallet.
+          </p>
           <form onSubmit={addPayers} className="flex flex-col gap-5">
-            {(["coverer", "family"] as const).map((role) => (
+            {(["coverer", "family"] as const).map((role) => role === "family" && patientPays ? (
+              <fieldset key={role} disabled={done || tx?.status === "pending"} className="m-0 flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
+                <legend className="px-1 text-sm font-bold">Family payer (everything else)</legend>
+                <span className="text-sm">
+                  <strong>{patientLabel}</strong> <span className="text-muted">(the patient)</span> ·{" "}
+                  <code className="font-mono text-xs">{patientWallet.slice(0, 6)}…{patientWallet.slice(-4)}</code>
+                </span>
+                <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
+                  <input type="checkbox" checked={patientPays} onChange={(e) => setPatientPays(e.target.checked)} />
+                  The patient pays the uncovered part from their own wallet
+                </label>
+              </fieldset>
+            ) : (
               <fieldset key={role} disabled={done || tx?.status === "pending"} className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 rounded-[12px] border border-line p-4">
                 <legend className="px-1 text-sm font-bold">{role === "coverer" ? "Coverer (insurer, employer or a relative paying covered items)" : "Family payer (everything else)"}</legend>
                 <Field label="Name" required value={payers[role].name} onChange={(e) => setPayers((p) => ({ ...p, [role]: { ...p[role], name: e.target.value } }))} />
@@ -135,13 +155,19 @@ export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: {
                   value={payers[role].wallet}
                   onChange={(e) => setPayers((p) => ({ ...p, [role]: { ...p[role], wallet: e.target.value.trim() } }))}
                 />
+                {role === "family" && (
+                  <label className="col-span-full flex min-h-11 cursor-pointer items-center gap-2 text-sm">
+                    <input type="checkbox" checked={patientPays} onChange={(e) => setPatientPays(e.target.checked)} />
+                    The patient pays the uncovered part from their own wallet
+                  </label>
+                )}
               </fieldset>
             ))}
             {tx && <TxStatus state={tx} label="Creating the episode onchain" />}
             {done ? (
               <div className="flex flex-wrap gap-3">
                 <ButtonLink href={`/provider/episodes/${created.id}`}>Open the episode</ButtonLink>
-                <span className="self-center text-sm text-muted">The payers see it as soon as they sign in with those wallets. Direct link: <code className="font-mono">/pay/{created.id}</code></span>
+                <span className="self-center text-sm text-muted">The patient and payers see it as soon as they sign in with those wallets. Direct link: <code className="font-mono">/pay/{created.id}</code></span>
               </div>
             ) : (
               <Button type="submit" disabled={tx?.status === "pending"} className="self-start">
@@ -160,7 +186,18 @@ export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: {
       <Card title="Patient">
         <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
           <Field label="Refer to the patient as" required value={patientLabel} onChange={(e) => setPatientLabel(e.target.value)} placeholder="Maria L." hint="A short label. Payers see it; no medical details." />
-          <Field label="Treatment (only you and the approver see this)" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="implant + crown" />
+          <Field
+            label="Patient's wallet address"
+            required
+            placeholder="0x…"
+            spellCheck={false}
+            autoComplete="off"
+            className="[&_input]:font-mono"
+            value={patientWallet}
+            onChange={(e) => setPatientWallet(e.target.value.trim())}
+            hint="The patient signs in with this wallet to follow their treatment, and pays from it unless someone else does."
+          />
+          <Field className="col-span-full" label="Treatment (only you and the approver see this)" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="implant + crown" />
         </div>
       </Card>
 

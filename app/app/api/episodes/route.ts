@@ -17,6 +17,7 @@ export const POST = handle(async (req) => {
     req,
     z.object({
       patientLabel: z.string().min(1),
+      patientWallet: z.string().min(1),
       description: z.string().default(""),
       lines: z.array(z.object({ priceItemId: z.string().uuid(), quantity: z.number().int().positive() })).min(1),
       contingencyPct: percent.optional(),

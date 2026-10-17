@@ -104,12 +104,13 @@ export async function payerFor(caller: Caller, episodeId: string): Promise<Payer
 
 /** Which parts of an episode the caller may see. */
 export async function episodeAccess(caller: Caller, episodeId: string) {
-  const { data: ep } = await db().from("episodes").select("provider_id").eq("id", episodeId).maybeSingle();
+  const { data: ep } = await db().from("episodes").select("provider_id, patient_wallet").eq("id", episodeId).maybeSingle();
   if (!ep) throw new UserError("Episode not found.", 404);
   const { data: prov } = await db().from("providers").select("id").eq("user_id", caller.userId).maybeSingle();
   const provider = prov?.id === ep.provider_id;
   const approver = await isApprover(caller);
   const payer = provider || approver ? null : await payerFor(caller, episodeId);
-  if (!provider && !approver && !payer) throw new UserError("Episode not found.", 404);
-  return { provider, approver, payer };
+  const patient = !!ep.patient_wallet && ep.patient_wallet === caller.wallet.toLowerCase();
+  if (!provider && !approver && !payer && !patient) throw new UserError("Episode not found.", 404);
+  return { provider, approver, payer, patient };
 }

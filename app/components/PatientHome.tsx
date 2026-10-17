@@ -3,7 +3,7 @@ import type { Address } from "viem";
 import { ClaimRefundButton, CopyButton } from "@/app/pay/[id]/PayActions";
 import { publicClient } from "@/lib/chains";
 import { careGuard } from "@/lib/contract";
-import type { PayerEpisode } from "@/lib/data";
+import type { getPatientEpisodes, PayerEpisode } from "@/lib/data";
 import { StatusPill } from "./StatusPill";
 import { Card, EmptyState } from "./ui/Bits";
 import { Money, toUnits } from "./ui/Money";
@@ -23,7 +23,7 @@ function nextStep(p: PayerEpisode, chainNow: number): { label: string; tone: "ac
   return { label: "Funded · treatment in progress", tone: "calm" };
 }
 
-export async function PatientHome({ name, wallet, rows }: { name: string; wallet: string; rows: PayerEpisode[] }) {
+export async function PatientHome({ name, wallet, rows, asPatient = [] }: { name: string; wallet: string; rows: PayerEpisode[]; asPatient?: Awaited<ReturnType<typeof getPatientEpisodes>> }) {
   const [chainBlock, pending] = await Promise.all([
     publicClient.getBlock(),
     publicClient.readContract({ ...careGuard, functionName: "pendingRefunds", args: [wallet as Address] }).catch(() => 0n),
@@ -70,8 +70,31 @@ export async function PatientHome({ name, wallet, rows }: { name: string; wallet
         </div>
       </section>
 
+      {asPatient.length > 0 && (
+        <Card title="Treatments someone else pays for" aside={<span className="text-xs text-muted">You&apos;re the patient</span>}>
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            {asPatient.map((e) => (
+              <li key={e.id}>
+                <Link href={`/pay/${e.id}`} className="lift flex flex-col gap-2 rounded-2xl border border-line bg-card p-4 sm:p-5">
+                  <span className="flex flex-wrap items-start justify-between gap-3">
+                    <strong>{e.providers.name} · for {e.patient_label}</strong>
+                    <StatusPill status={e.status} />
+                  </span>
+                  <span className="text-xs text-muted">
+                    Paid by {e.payers.map((p) => p.display_name).join(" and ") || "payers not added yet"} · paid to the hospital so far <Money value={e.paid_total} />
+                  </span>
+                  <span className="self-start text-sm font-bold text-muted">Follow the treatment →</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       <Card title="Your treatments" aside={<span className="text-xs text-muted">{rows.length} in total</span>}>
-        {rows.length === 0 ? (
+        {rows.length === 0 && asPatient.length > 0 ? (
+          <p className="m-0 text-sm text-muted">Nothing to fund yourself right now.</p>
+        ) : rows.length === 0 ? (
           <EmptyState title="No treatments yet">
             <p className="m-0">When a hospital adds your wallet as a payer, the treatment appears here with its quote and your share. Give the hospital this address:</p>
             <span className="mt-3 flex flex-wrap items-center gap-2">

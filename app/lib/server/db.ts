@@ -31,6 +31,7 @@ export type EpisodeRow = {
   network: string;
   contract_episode_id: number | null;
   patient_label: string;
+  patient_wallet: string | null;
   description: string;
   quote_usdc: number;
   contingency_pct: number;

@@ -17,6 +17,7 @@ import { UserError } from "@/lib/server/errors";
 import { episodeView } from "@/lib/server/episodes";
 import { requireSession } from "@/lib/server/session";
 import { ClaimRefundButton, CopyButton, FundForm, RefundExpiredButton } from "./PayActions";
+import { PatientView } from "./PatientView";
 
 export const metadata: Metadata = { title: "Fund your share · CareGuard" };
 
@@ -54,12 +55,26 @@ export default async function Pay({ params }: { params: Promise<{ id: string }> 
     throw err;
   }
   const me = access.payer;
-  if (!me) notFound();
+  if (!me && !access.patient) notFound();
 
   const view = await episodeView(id, access);
   const ep = view.episode;
   const { data: provider } = await db().from("providers").select("name").eq("id", ep.provider_id).single();
   const clinic = provider?.name ?? "your clinic";
+
+  // The patient when someone else pays: follow the treatment, nothing to fund.
+  if (!me) {
+    return (
+      <PatientView
+        episodeId={id}
+        clinic={clinic}
+        episode={ep}
+        payers={view.payers as unknown as Parameters<typeof PatientView>[0]["payers"]}
+        charges={view.charges as unknown as Parameters<typeof PatientView>[0]["charges"]}
+        quote={(view.quote ?? []) as Parameters<typeof PatientView>[0]["quote"]}
+      />
+    );
+  }
   const owed = toUnits(me.owed_usdc);
   const funded = toUnits(me.funded_usdc);
   const remaining = owed > funded ? owed - funded : 0n;

@@ -55,9 +55,15 @@ async function providerOf(ep: EpisodeRow): Promise<ProviderRow> {
   return must(await db().from("providers").select("*").eq("id", ep.provider_id).single()) as ProviderRow;
 }
 
-/** Block time, which is what the contract compares expiry and deadlines against. */
+/**
+ * Chain time, which is what the contract compares expiry and deadlines against. On an idle local chain the latest block
+ * can be hours old (anvil only mines on demand), so use the pending block and never go below wall-clock time.
+ */
 async function chainNow(): Promise<bigint> {
-  return (await publicClient.getBlock()).timestamp;
+  // The pending block is the one our transaction lands in; fall back to the latest block if the RPC doesn't serve it.
+  const block = await publicClient.getBlock({ blockTag: "pending" }).catch(() => publicClient.getBlock());
+  const wall = BigInt(Math.floor(Date.now() / 1000));
+  return block.timestamp > wall ? block.timestamp : wall;
 }
 
 /** The contract is the truth: read the episode from the chain. */
@@ -205,6 +211,8 @@ export async function savePriceList(provider: ProviderRow, items: PriceItemInput
 
 export type NewEpisode = {
   patientLabel: string;
+  /** The patient's wallet: they can always follow their own treatment, whoever pays. */
+  patientWallet: string;
   description: string;
   lines: { priceItemId: string; quantity: number }[];
   contingencyBps?: number;
@@ -217,6 +225,10 @@ export type NewEpisode = {
 /** Flow 1, steps 2–3: create from the quote; the agent sizes the guarantee and explains why. */
 export async function createEpisode(provider: ProviderRow, input: NewEpisode) {
   if (!input.patientLabel.trim()) throw new UserError("Enter how to refer to the patient, e.g. “Maria L.”.");
+  if (!isAddress(input.patientWallet.trim())) throw new UserError("Enter the patient's wallet address (0x followed by 40 characters).");
+  if (provider.wallet_address && input.patientWallet.trim().toLowerCase() === provider.wallet_address.toLowerCase()) {
+    throw new UserError("The patient's wallet can't be the hospital's own wallet.");
+  }
   const items = must(
     await db().from("price_items").select("*").eq("provider_id", provider.id).in("id", input.lines.map((l) => l.priceItemId)),
   ) as PriceItemRow[];
@@ -245,6 +257,7 @@ export async function createEpisode(provider: ProviderRow, input: NewEpisode) {
         provider_id: provider.id,
         network: config.network,
         patient_label: input.patientLabel.trim(),
+        patient_wallet: input.patientWallet.trim().toLowerCase(),
         description: input.description.trim(),
         quote_usdc: str(sizing.quote),
         contingency_pct: contingencyBps / 100,
@@ -640,7 +653,7 @@ export async function refundExpired(episodeId: string) {
 // ------------------------------------------------------------------ reads
 
 /** An episode with balances, charges and decisions, cut down to what the caller's role may see. */
-export async function episodeView(episodeId: string, access: { provider: boolean; approver: boolean; payer: PayerRow | null }) {
+export async function episodeView(episodeId: string, access: { provider: boolean; approver: boolean; payer: PayerRow | null; patient?: boolean }) {
   const ep = await refreshFromChain(await loadEpisode(episodeId));
   const full = access.provider || access.approver;
   const [payers, charges, decisions, transactions, quote] = await Promise.all([
@@ -655,7 +668,7 @@ export async function episodeView(episodeId: string, access: { provider: boolean
   const episode = full ? ep : { ...ep, description: undefined };
   return {
     episode,
-    role: access.provider ? "provider" : access.approver ? "approver" : "payer",
+    role: access.provider ? "provider" : access.approver ? "approver" : access.payer ? "payer" : "patient",
     me: access.payer ? { id: access.payer.id, role: access.payer.role } : null,
     payers: payers.data ?? [],
     charges: charges.data ?? [],

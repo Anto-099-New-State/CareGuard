@@ -77,6 +77,27 @@ export async function getPayerEpisodes(s: Session) {
   return ((data ?? []) as unknown as PayerEpisode[]).sort((a, b) => b.episodes.created_at.localeCompare(a.episodes.created_at));
 }
 
+/** Episodes where the signed-in wallet is the patient, including ones a relative or insurer pays for. */
+export async function getPatientEpisodes(s: Session) {
+  const { data } = await db()
+    .from("episodes")
+    .select("id, patient_label, status, contract_episode_id, guarantee_usdc, paid_total, expires_at, created_at, providers(name), payers(role, display_name, wallet_address)")
+    .eq("patient_wallet", s.caller.wallet.toLowerCase())
+    .order("created_at", { ascending: false });
+  return (data ?? []) as unknown as {
+    id: string;
+    patient_label: string;
+    status: EpisodeRow["status"];
+    contract_episode_id: number | null;
+    guarantee_usdc: number | null;
+    paid_total: number;
+    expires_at: string | null;
+    created_at: string;
+    providers: { name: string };
+    payers: { role: "coverer" | "family"; display_name: string; wallet_address: string | null }[];
+  }[];
+}
+
 export type PayerEpisode = {
   id: string;
   role: "coverer" | "family";

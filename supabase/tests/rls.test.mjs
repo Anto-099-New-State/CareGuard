@@ -77,4 +77,14 @@ check("wallet-matched payer still can't read charges table", (await as(walletPay
 check("wallet-matched payer reads charges via view", (await as(walletPayer, "select * from payer_charges")).length === 1);
 check("profiles: only your own", (await as(walletPayer, "select * from profiles")).length === 1 && (await as(u.prov, "select * from profiles")).length === 0);
 check("stranger still sees no quote", (await as(u.nobody, "select * from quote_items")).length === 0);
+// The patient's wallet on the episode can follow the treatment even when someone else pays.
+const patientUser = "00000000-0000-0000-0000-000000000008";
+await db.exec(`
+  insert into auth.users values ('${patientUser}');
+  insert into profiles (user_id, wallet_address, role, display_name) values ('${patientUser}', '0x00000000000000000000000000000000000000bb', 'patient', 'Maria');
+  update episodes set patient_wallet = '0x00000000000000000000000000000000000000bb' where id = '30000000-0000-0000-0000-000000000001';
+`);
+check("patient wallet sees their episode", (await as(patientUser, "select id from episodes")).length === 1);
+check("patient sees charges via view, not descriptions", (await as(patientUser, "select * from payer_charges")).length === 1 && (await as(patientUser, "select * from charges")).length === 0);
+check("patient doesn't see other episodes", (await as(patientUser, "select id from episodes where id = '30000000-0000-0000-0000-000000000002'")).length === 0);
 process.exit(fails ? 1 : 0);

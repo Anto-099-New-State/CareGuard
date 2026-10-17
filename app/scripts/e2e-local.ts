@@ -109,9 +109,10 @@ async function main() {
   const id = (code: string) => items.find((i) => i.code === code)!.id as string;
 
   /** A funded episode: quote CON×1, IMP×2, XR×1 = 720.00, IMP 70% covered. */
-  async function episode(opts: { capPct: number; fundCoverer?: string; fundFamily?: string }) {
+  async function episode(opts: { capPct: number; fundCoverer?: string; fundFamily?: string; patientWallet?: string }) {
     const created = await okApi(provider.token, "POST", "/api/episodes", {
       patientLabel: "E2E P.",
+      patientWallet: opts.patientWallet ?? family.address, // usually the patient is also the family payer
       description: "internal test",
       lines: [
         { priceItemId: id("CON-01"), quantity: 1 },
@@ -252,6 +253,15 @@ async function main() {
     const offList = await charge(epId, { priceItemId: null, amount: "50.00", description: "e2e" });
     assert.equal(offList.charge.status, "escalated");
     assert.equal(offList.decision.reason, "Not on the provider's price list.");
+
+    // A patient who isn't paying can follow the treatment, without the treatment description.
+    const patient = await user(7);
+    await okApi(patient.token, "POST", "/api/profile", { role: "patient", name: "E2E Patient" });
+    const followed = await episode({ capPct: 50, patientWallet: patient.address, fundCoverer: "0", fundFamily: "0" });
+    const patientView = await okApi(patient.token, "GET", `/api/episodes/${followed.epId}`);
+    assert.equal(patientView.role, "patient");
+    assert.equal(patientView.episode.description, undefined, "patients don't see the treatment description");
+    assert.equal((await api(patient.token, "POST", `/api/episodes/${followed.epId}/fund`, { txHash: `0x${"cd".repeat(32)}` })).status, 403, "a non-paying patient can't fund");
 
     // A stranger can't read the episode or fund it.
     const stranger = await user(6);

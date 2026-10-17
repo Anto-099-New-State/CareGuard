@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/Bits";
 import { Money } from "@/components/ui/Money";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { TxLink } from "@/components/ui/Tx";
-import { getDashboard, getPayerEpisodes } from "@/lib/data";
+import { getDashboard, getPatientEpisodes, getPayerEpisodes } from "@/lib/data";
 import { formatAmount } from "@/lib/money";
 import { requireSession } from "@/lib/server/session";
 import type { EpisodeSummary } from "@/lib/types";
@@ -41,7 +41,9 @@ export default async function Dashboard() {
         </>
       );
     }
-    return <PatientHome name={s.profile?.display_name ?? "there"} wallet={s.caller.wallet} rows={payerEpisodes} />;
+    const payerIds = new Set(payerEpisodes.map((r) => r.episodes.id));
+    const asPatient = (await getPatientEpisodes(s)).filter((e) => !payerIds.has(e.id));
+    return <PatientHome name={s.profile?.display_name ?? "there"} wallet={s.caller.wallet} rows={payerEpisodes} asPatient={asPatient} />;
   }
 
   const data = await getDashboard(s);
