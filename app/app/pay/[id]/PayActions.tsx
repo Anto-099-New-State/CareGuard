@@ -40,10 +40,10 @@ export function FundForm({ episodeId, defaultCurrency, suggested, eurcAvailable 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-        <legend className="mb-2 text-[13px] font-semibold">Pay in</legend>
+        <legend className="mb-2 text-[13px] font-semibold">Pay with</legend>
         <div className="grid grid-cols-2 gap-2">
           {(["EURC", "USDC"] as const).map((c) => (
-            <label key={c} className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-[12px] border text-sm font-bold ${currency === c ? "border-2 border-strong bg-chip" : "border-line"} ${c === "EURC" && !eurcAvailable ? "cursor-not-allowed opacity-40" : ""}`}>
+            <label key={c} className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 text-sm font-bold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-strong ${currency === c ? "border-strong bg-chip text-strong" : "border-line"} ${c === "EURC" && !eurcAvailable ? "cursor-not-allowed opacity-40" : ""}`}>
               <input type="radio" name="currency" value={c} checked={currency === c} disabled={c === "EURC" && !eurcAvailable} onChange={() => setCurrency(c)} className="sr-only" />
               {c}
             </label>
@@ -79,6 +79,48 @@ export function RefundExpiredButton({ episodeId }: { episodeId: string }) {
     <div className="flex flex-col gap-3">
       {tx && <TxStatus state={tx} label="Refund" />}
       {tx?.status !== "confirmed" && <Button onClick={run} disabled={tx?.status === "pending"} className="min-h-12 w-full">Refund after expiry</Button>}
+    </div>
+  );
+}
+
+export function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          // Clipboard blocked: the address is still selectable on the page.
+        }
+      }}
+      className="min-h-9 cursor-pointer rounded-full border border-line bg-card px-3 text-xs font-bold text-ink"
+    >
+      <span aria-live="polite">{copied ? "✓ Copied" : "Copy address"}</span>
+    </button>
+  );
+}
+
+export function ClaimRefundButton() {
+  const router = useRouter();
+  const [tx, setTx] = useState<TxState | null>(null);
+  const run = async () => {
+    setTx({ status: "pending" });
+    try {
+      const res = await api<{ claimed: { txHash: string }[] }>("/api/refunds/claim", { body: {} });
+      setTx({ status: "confirmed", hash: res.claimed[0]?.txHash });
+      router.refresh();
+    } catch (err) {
+      setTx({ status: "failed", error: err instanceof Error ? err.message : "Couldn't claim the refund." });
+    }
+  };
+  return (
+    <div className="flex flex-col gap-3">
+      {tx && <TxStatus state={tx} label="Refund" />}
+      {tx?.status !== "confirmed" && <Button onClick={run} disabled={tx?.status === "pending"} className="self-start">Claim my refund</Button>}
     </div>
   );
 }
