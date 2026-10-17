@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { CountUp } from "@/components/CountUp";
+import { HeroScene } from "@/components/HeroScene";
 import { Logo } from "@/components/Logo";
 import { Reveal } from "@/components/Reveal";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { ArrowDownIcon, ArrowUpRightIcon, ClockBackIcon, HospitalIcon, LockIcon, SwapIcon } from "@/components/icons";
+import { ArrowDownIcon, ArrowUpRightIcon, ClockBackIcon, LockIcon, SwapIcon } from "@/components/icons";
 
 const steps = [
   { title: "Sizing", body: "The agent sizes the guarantee from the provider's own quote plus a stated contingency, and explains why." },
@@ -31,6 +31,8 @@ const h2 = "m-0 font-display font-extrabold tracking-[-0.03em]";
 const cardTitle = "m-0 font-display text-[28px] font-bold tracking-[-0.02em]";
 const body = "m-0 text-base leading-relaxed text-muted";
 const pillBtn = "btn rounded-full bg-accent font-bold text-accent-ink";
+/** Launch app: connect wallet, choose a role the first time, then the dashboard. */
+const LAUNCH = "/signin?next=/dashboard";
 
 function TokenCoin({ code }: { code: string }) {
   return (
@@ -51,19 +53,17 @@ export default function Landing() {
   return (
     <div className="min-h-screen">
       <Reveal />
-      <header className="border-b border-line">
-        <nav aria-label="Main" className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-8 gap-y-4 px-6 py-[18px]">
-          <Logo />
-          <div className="flex flex-auto flex-wrap gap-x-7 gap-y-2 text-sm font-medium max-md:hidden">
-            <a className="hover-link" href="#features">Features</a>
+      <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur">
+        <nav aria-label="Main" className="mx-auto flex max-w-[1240px] items-center gap-6 px-6 py-2.5">
+          <Logo size="md" />
+          <div className="flex flex-auto gap-6 text-sm font-medium max-md:hidden">
             <a className="hover-link" href="#flow">How it works</a>
-            <a className="hover-link" href="#money">Money</a>
-            <a className="hover-link" href="#providers">For providers</a>
+            <a className="hover-link" href="#money">Currencies</a>
+            <a className="hover-link" href="#providers">For hospitals</a>
           </div>
-          <div className="ml-auto flex items-center gap-4">
+          <div className="ml-auto flex items-center gap-3">
             <ThemeToggle />
-            <Link className="hover-link text-sm font-semibold" href="/signin">Sign in</Link>
-            <Link href="/dashboard" className={`${pillBtn} px-6 py-[13px] text-sm`}>Launch app</Link>
+            <Link href={LAUNCH} className={`${pillBtn} px-5 py-2.5 text-sm whitespace-nowrap`}>Launch app</Link>
           </div>
         </nav>
       </header>
@@ -86,7 +86,7 @@ export default function Landing() {
               provider sees it&apos;s there and starts treating. An AI agent pays each charge in seconds, and whatever is left goes back to each payer.
             </p>
             <div className="a-rise d4 flex flex-wrap items-center gap-7">
-              <Link href="/dashboard" className={`${pillBtn} px-[34px] py-[18px] text-base`}>Open a care episode</Link>
+              <Link href={LAUNCH} className={`${pillBtn} px-[34px] py-[18px] text-base`}>Open a care episode</Link>
               <a href="#flow" className="arrow hover-link flex items-center gap-2 text-base font-semibold">
                 See how it works
                 <ArrowUpRightIcon />
@@ -94,45 +94,8 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="a-card mx-auto flex min-w-0 max-w-[460px] flex-[1_1_380px] flex-col gap-3.5 rounded-[20px] border border-line bg-card p-[22px] shadow-[0_30px_60px_-40px_rgba(20,16,60,.35)]">
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-strong">
-                <HospitalIcon size={22} stroke="#FFFFFF" />
-              </span>
-              <div className="flex flex-auto flex-col gap-0.5">
-                <strong className="text-base">Dental clinic, abroad</strong>
-                <span className="text-xs text-muted">Example episode · implant + crown</span>
-              </div>
-              <span className="rounded-full bg-ok-bg px-2.5 py-[5px] text-xs font-bold text-ok">Funds committed</span>
-            </div>
-            <div className="flex flex-col gap-2.5 rounded-[14px] bg-surface p-[18px]">
-              <span className="text-xs text-muted">Guarantee (quote + 20% contingency)</span>
-              <strong className="amount font-display text-[34px] tracking-[-0.02em]">
-                <CountUp to={1800} suffix=".00" />
-                <span className="ccy">USDC</span>
-              </strong>
-              <div className="flex h-2 gap-[3px] overflow-hidden rounded-full">
-                <span className="a-grow flex-[70_1_0] bg-strong [animation-delay:.9s]" />
-                <span className="a-grow flex-[30_1_0] bg-accent [animation-delay:1.15s]" />
-              </div>
-              <div className="flex flex-wrap justify-between gap-1.5 text-xs text-muted">
-                <span>Insurer 70% · covered items</span>
-                <span>Family 30% · the rest</span>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5 rounded-[14px] bg-surface p-3.5">
-                <span className="text-xs text-muted">Family funds in</span>
-                <strong className="text-sm">EURC or USDC</strong>
-                <span className="text-xs text-muted">Held as USDC</span>
-              </div>
-              <div className="flex flex-col gap-1.5 rounded-[14px] bg-surface p-3.5">
-                <span className="text-xs text-muted">Provider paid in</span>
-                <strong className="text-sm">USDC</strong>
-                <span className="text-xs text-muted">Per approved charge</span>
-              </div>
-            </div>
-            <Link href="/dashboard" className={`${pillBtn} a-glow block p-4 text-center text-base`}>Fund my share</Link>
+          <div className="a-rise d3 min-w-0 flex-[1_1_440px]">
+            <HeroScene />
           </div>
         </section>
 
@@ -224,7 +187,7 @@ export default function Landing() {
                   Money held for an episode can only go two ways: to the provider for an approved charge, or back to the payer who sent it. Nobody,
                   including us, can send it anywhere else.
                 </p>
-                <Link href="/dashboard" className={`${pillBtn} self-start px-[30px] py-[15px] text-sm`}>Open the app</Link>
+                <Link href={LAUNCH} className={`${pillBtn} self-start px-[30px] py-[15px] text-sm`}>Open the app</Link>
               </div>
               <div className="reveal flex min-w-0 flex-[1_1_440px] flex-col items-center gap-[18px] rounded-[20px] border border-line bg-card p-9">
                 <div className="flex flex-wrap justify-center gap-3">
@@ -272,7 +235,7 @@ export default function Landing() {
             ))}
             <li className="reveal flex flex-col justify-between gap-[18px] rounded-2xl bg-inv p-[22px] text-inv-ink">
               <strong className="font-display text-2xl leading-[1.15]">Ready to open your first episode?</strong>
-              <Link href="/dashboard" className={`${pillBtn} self-start px-6 py-[13px] text-sm`}>Launch app</Link>
+              <Link href={LAUNCH} className={`${pillBtn} self-start px-6 py-[13px] text-sm`}>Launch app</Link>
             </li>
           </ol>
         </section>
@@ -288,7 +251,7 @@ export default function Landing() {
               </p>
             </div>
             <div className="flex flex-wrap gap-3.5">
-              <Link href="/signin" className="rounded-full bg-white px-7 py-4 text-sm font-bold text-[#1A1340]">Get started</Link>
+              <Link href={LAUNCH} className="rounded-full bg-white px-7 py-4 text-sm font-bold text-[#1A1340]">Get started</Link>
               <a href="#flow" className="rounded-full border border-white px-7 py-4 text-sm font-bold text-white">How it works</a>
             </div>
           </div>

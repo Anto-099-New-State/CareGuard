@@ -196,3 +196,96 @@
   .reveal-ready .reveal { opacity: 1; transform: none; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ------------------------------------------------------------------ 3D hero scene (HeroScene.tsx) */
+.scene { position: relative; width: 100%; aspect-ratio: 6 / 5; min-height: 340px; perspective: 2000px; }
+.scene-stage {
+  position: absolute; left: 47%; top: 58%; width: 620px; height: 400px; margin: -200px 0 0 -310px;
+  transform-style: preserve-3d; transform: scale(var(--scene-scale, 0.92)) rotateX(56deg) rotateZ(-32deg);
+}
+@media (max-width: 1100px) { .scene { --scene-scale: 0.78; } }
+@media (max-width: 640px) { .scene { --scene-scale: 0.56; min-height: 300px; } }
+.scene-floor {
+  position: absolute; inset: 40px 0 0 0; border-radius: 32px;
+  background:
+    radial-gradient(circle at 50% 55%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 60%),
+    linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 38px 38px,
+    linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / 38px 38px,
+    var(--surface);
+  box-shadow: 0 80px 90px -60px rgba(20, 16, 60, 0.5);
+}
+.scene-path { position: absolute; height: 0; border-top: 4px dashed var(--accent); }
+.path-out { border-top-color: var(--ok); }
+.scene-box { position: absolute; transform-style: preserve-3d; }
+.scene-box .face { position: absolute; overflow: hidden; }
+.scene-box .top { inset: 0; transform: translateZ(var(--h)); display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+.scene-box .front { left: 0; top: 100%; width: 100%; height: var(--h); transform-origin: top; transform: rotateX(90deg); }
+.scene-box .side { left: 100%; top: 0; width: var(--h); height: 100%; transform-origin: left; transform: rotateY(-90deg); }
+.tone-card .top { background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
+.tone-card .front { background: color-mix(in oklab, var(--card) 90%, var(--ink) 10%); }
+.tone-card .side { background: color-mix(in oklab, var(--card) 78%, var(--ink) 22%); }
+.tone-strong .top { background: var(--strong); animation: cg-vault 3.2s ease-in-out infinite; }
+.tone-strong .front { background: color-mix(in oklab, var(--strong) 82%, black 18%); }
+.tone-strong .side { background: color-mix(in oklab, var(--strong) 64%, black 36%); }
+.tone-ink .top { background: #23232c; }
+.tone-ink .front { background: #1b1b22; }
+.tone-ink .side { background: #101016; }
+@keyframes cg-vault { 0%, 100% { box-shadow: 0 0 0 0 rgba(156, 140, 255, 0); } 50% { box-shadow: 0 0 0 10px rgba(156, 140, 255, 0.35); } }
+
+/* Faces are seen from below their top edge after rotateX(90deg): flip their content so it reads upright. */
+.scene-box .front > *, .scene-box .side > * { transform: scaleY(-1); }
+
+.phone .screen {
+  position: absolute; inset: 6px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  background: linear-gradient(165deg, var(--accent), var(--strong)); color: #fff; font-family: var(--font-sans);
+}
+.phone .who { font-size: 10px; opacity: 0.85; }
+.phone .amt { font: 800 20px/1 var(--font-display); }
+.phone .btn-pill { margin-top: 6px; padding: 5px 8px; border-radius: 999px; background: #fff; color: #1a1340; font-size: 9px; font-weight: 800; }
+.vault-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font: 800 15px/1 var(--font-display); letter-spacing: 0.06em; }
+.hospital .helipad { width: 46px; height: 46px; border-radius: 999px; border: 3px solid var(--line); display: flex; align-items: center; justify-content: center; font: 800 20px/1 var(--font-display); color: var(--muted); }
+.hospital .front, .hospital .side { display: flex; }
+.hospital .windows { position: absolute; inset: 34px 12px 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.hospital .side .windows { grid-template-columns: repeat(2, 1fr); inset: 16px 14px 20px; }
+.hospital .windows span { border-radius: 3px; background: color-mix(in oklab, var(--accent) 45%, var(--card)); }
+.hospital .door { position: absolute; left: 50%; bottom: 0; width: 26px; height: 30px; margin-left: -13px; border-radius: 6px 6px 0 0; background: var(--strong); }
+.hospital .sign { position: absolute; left: 50%; top: 6px; width: 22px; height: 22px; margin-left: -11px; }
+.hospital .sign::before, .hospital .sign::after { content: ""; position: absolute; background: var(--ok); border-radius: 2px; }
+.hospital .sign::before { left: 8px; top: 0; width: 6px; height: 22px; }
+.hospital .sign::after { left: 0; top: 8px; width: 22px; height: 6px; }
+
+.scene-coin {
+  position: absolute; width: 30px; height: 30px; border-radius: 999px; background: #f5c542; color: #6b4b00;
+  font: 800 15px/30px var(--font-sans); text-align: center; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18); opacity: 0;
+}
+.coin-in { animation: cg-coin 3.3s ease-in-out infinite; }
+.coin-out { animation: cg-coin-out 3.2s ease-in-out infinite; background: #7fd8a1; color: #0d4a26; }
+@keyframes cg-coin {
+  0% { opacity: 0; transform: translate3d(0, 0, 16px); }
+  12% { opacity: 1; }
+  50% { transform: translate3d(70px, 0, 54px); }
+  88% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(140px, 0, 16px); }
+}
+@keyframes cg-coin-out {
+  0% { opacity: 0; transform: translate3d(0, 0, 16px); }
+  12% { opacity: 1; }
+  50% { transform: translate3d(65px, 0, 54px); }
+  88% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(130px, 0, 16px); }
+}
+/* Labels: undo the stage rotation so they face the viewer. */
+.scene-tag-anchor { position: absolute; width: 0; height: 0; transform-style: preserve-3d; transform: translateZ(var(--z)); }
+.scene-tag {
+  position: absolute; transform: rotateZ(32deg) rotateX(-56deg) translate(-50%, -100%); transform-origin: 0 0;
+  display: flex; flex-direction: column; gap: 2px; white-space: nowrap; padding: 8px 12px; border-radius: 14px;
+  background: var(--card); border: 1px solid var(--line); color: var(--ink); font: 500 13px/1.3 var(--font-sans);
+  box-shadow: 0 16px 34px -18px rgba(20, 16, 60, 0.55);
+}
+.scene-tag strong { font: 700 15px/1.2 var(--font-display); }
+.scene-tag span { color: var(--muted); }
+.tag-strong { background: var(--strong); border-color: transparent; color: #fff; }
+.tag-strong span { color: #e7e3ff; }
+.tag-agent { flex-direction: row; align-items: center; gap: 7px; background: var(--ok-bg); border-color: transparent; color: var(--ok); font-weight: 700; }
+.tag-agent .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--ok); animation: cg-blink 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .scene-coin { opacity: 1; } }
