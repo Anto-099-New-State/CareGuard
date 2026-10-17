@@ -30,7 +30,8 @@ Needs Foundry, Docker and Node 22.
 anvil                                                    # terminal 1
 cd contracts && forge script script/DeployLocal.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
 npx supabase start                                       # repo root; prints the local keys
-cd app && cp .env.example .env.local                     # set NEXT_PUBLIC_NETWORK=local, the Supabase keys, AGENT_JUDGE=stub
+cd app && cp .env.example .env.local                     # set NEXT_PUBLIC_NETWORK=local, the local Supabase keys, AGENT_JUDGE=stub
+                                                         # (.env.local overrides .env; rename it away to use the hosted project)
 npm install && npm run dev                               # terminal 2
 npm run e2e                                              # terminal 3: scenarios A–E
 npm run indexer -- --watch                               # optional: follow contract events

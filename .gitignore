@@ -11,3 +11,6 @@ contracts/cache/
 contracts/broadcast/*/31337/
 config/local.json
 supabase/tests/node_modules/
+
+.vercel
+.env*
