@@ -6,9 +6,9 @@ How an episode moves from a quote to a refund, and who is allowed to do what at 
 
 | Actor | Who they are | What they hold |
 |---|---|---|
-| **Provider** | Clinic, dentist, hospital or facilitator | A Circle wallet that receives USDC; their price list |
-| **Coverer** | Insurer, employer, or a relative paying covered items | A Circle wallet with USDC |
-| **Family payer** | Relative paying non-covered items, often in another country | A Circle wallet with USDC or EURC |
+| **Provider** | Clinic, dentist, hospital or facilitator | Their own wallet, which receives USDC; their price list |
+| **Coverer** | Insurer, employer, or a relative paying covered items | Their own wallet with USDC on Arc |
+| **Family payer** | Relative paying non-covered items, often in another country | Their own wallet with USDC on Arc (EURC to return later) |
 | **Agent** | Our backend service | The agent wallet: creates episodes, pays charges, raises margin calls, discharges. Can't move money anywhere else |
 | **Approver** | A human on our team | The approver key, which signs over-cap charges. Never on the server |
 | **Contract** | Our smart contract on Arc | All episode money, with no private key |
@@ -53,7 +53,7 @@ Closed and Expired are final.
 ## Flow 1: Provider sets up
 
 1. Provider signs up and enters their **real price list** (code, label, unit price).
-2. Provider creates an episode from a patient's quote and adds the two payers by email.
+2. Provider creates an episode from a patient's quote and adds the two payers by wallet address.
 3. Agent sizes the guarantee: quote total + contingency, and writes its reasoning to the decision log.
 4. Agent calls `createEpisode(...)`; the contract emits `EpisodeCreated`.
 5. Payers get a link to their funding page.

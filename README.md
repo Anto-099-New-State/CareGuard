@@ -42,7 +42,7 @@ npm run indexer -- --watch                               # optional: follow cont
 2. Deploy: `cd contracts && USDC_ADDRESS=0x3600000000000000000000000000000000000000 AGENT_ADDRESS=… APPROVER_ADDRESS=… forge script script/Deploy.s.sol --rpc-url arc_testnet --broadcast --account <deployer>`.
 3. Put the address and deploy block in `config/testnet.json`, push the migration to the hosted Supabase project, and fill `app/.env.local` from `.env.example`.
 
-Payer and provider wallets are Circle developer-controlled wallets we create for them, so they are custodial in this version.
+Everyone signs in with their own wallet (Sign-In with Ethereum). Hospitals are paid to it; patients and families fund and claim refunds from it. Only the agent uses a Circle wallet.
 
 ### Testnet scenarios (TESTING.md layer 3)
 

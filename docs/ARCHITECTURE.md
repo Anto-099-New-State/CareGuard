@@ -10,7 +10,7 @@ flowchart LR
     subgraph Backend
         API[API routes]
         AG[Agent<br/>sizing, charge review,<br/>margin calls]
-        W[Circle wallets<br/>agent, payers, provider]
+        W[Circle wallet<br/>agent only]
         SW[EURC to USDC swap<br/>App Kit]
         IDX[Indexer]
         DB[(Supabase)]
@@ -159,7 +159,7 @@ Rules:
 
 ## 3. Frontend (owner: Anto)
 
-Next.js, Tailwind, shadcn/ui, Supabase auth and realtime. Users sign in with email; wallets are created for them, so no seed phrases. The approver signs with a browser wallet (wagmi + viem).
+Next.js, Tailwind, Supabase auth and realtime. Everyone signs in with their own wallet (Sign-In with Ethereum, verified by Supabase) and chooses a role on first sign-in: hospital/clinic or patient/family. Payers approve and fund from their wallet in the browser (viem); the server verifies the `Funded` event in the receipt before recording it. The approver signs over-cap charges with the same wallet.
 
 ### Pages
 

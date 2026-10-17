@@ -48,6 +48,7 @@ Read them in this order:
 - **USDC is the holding currency.** EURC is swapped to USDC when a payer funds. The provider is paid in USDC.
 - **No medical data onchain.** Only salted hashes of charges and decisions. Descriptions stay in the database, visible only to the provider and approver.
 - **No synthetic data.** No seed scripts, sample episodes or invented price lists. Every episode comes from a real provider and real payers. Our own test runs are flagged and excluded from traction numbers.
+- **Wallet-only sign-in (decided 2026-10-17).** Everyone signs in with Sign-In with Ethereum using the wallet they pay or get paid with, and picks a role the first time: hospital/clinic or patient/family (insurers paying for a patient pick patient). Payers fund and claim refunds from their own wallets; hospitals are paid to theirs. Only the agent keeps a Circle wallet. The approver is recognised by the contract's approver key.
 - **Cost sizing uses the provider's own quote and price list**, plus a stated contingency, because we have no cost history yet.
 
 ## Open decisions
@@ -58,7 +59,6 @@ These still need both of us. Defaults are in brackets.
 - [ ] Default per-charge cap [25% of the guarantee]
 - [ ] Episode expiry [30 days; 30 minutes on testnet]
 - [ ] Margin call threshold [remaining funds < expected remaining cost]
-- [ ] Payers: Circle wallets we create, or their own wallets? [Circle developer-controlled wallets for the demo; noted as custodial in the README]
 
 ## Out of scope for the hackathon (roadmap)
 
