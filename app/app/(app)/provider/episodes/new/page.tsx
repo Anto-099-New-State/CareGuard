@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Bits";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { db, type PriceItemRow } from "@/lib/server/db";
 import { settings } from "@/lib/server/env";
 import { requireSession } from "@/lib/server/session";
@@ -17,13 +18,11 @@ export default async function NewEpisode() {
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <h1 className="m-0 font-display text-[28px] font-bold tracking-[-0.02em]">New care episode</h1>
-        <p className="m-0 max-w-[640px] text-sm leading-relaxed text-muted">
-          Enter the patient&apos;s quote from your price list. The agent sizes the guarantee and explains why; then add the two payers and the
-          episode goes onchain.
-        </p>
-      </div>
+      <PageHeader
+        back={{ href: "/dashboard", label: "Dashboard" }}
+        title="New care episode"
+        subtitle="Build the patient's quote from your price list. The agent sizes the guarantee and explains why; then add the two payers and the episode goes onchain."
+      />
       {items.length === 0 ? (
         <EmptyState title="Add your price list first" action={<ButtonLink href="/provider/prices">Go to price list</ButtonLink>}>
           A quote is built from your own price list lines, so the agent can check every charge against it.

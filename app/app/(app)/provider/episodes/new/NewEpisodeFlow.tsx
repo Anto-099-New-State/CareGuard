@@ -8,6 +8,7 @@ import { Field, Select } from "@/components/ui/Field";
 import { Money } from "@/components/ui/Money";
 import { TxStatus, type TxState } from "@/components/ui/Tx";
 import { api } from "@/lib/client/api";
+import { sizeGuarantee } from "@/lib/agent/sizing";
 import { formatMoney } from "@/lib/money";
 
 type Item = { id: string; code: string; label: string; unitPrice: string };
@@ -38,6 +39,20 @@ export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: {
   const byId = (id: string) => items.find((i) => i.id === id);
   const quote = useMemo(() => lines.reduce((s, l) => s + (byId(l.priceItemId) ? BigInt(byId(l.priceItemId)!.unitPrice) * BigInt(qty(l.quantity)) : 0n), 0n), [lines]); // eslint-disable-line react-hooks/exhaustive-deps
   const codesInQuote = [...new Set(lines.map((l) => byId(l.priceItemId)?.code).filter(Boolean) as string[])];
+  // Live preview with the agent's own sizing rule, so what the provider sees here is what the agent will decide.
+  const preview = useMemo(() => {
+    const quoteLines = lines
+      .filter((l) => byId(l.priceItemId) && qty(l.quantity) > 0)
+      .map((l) => ({ priceItemId: l.priceItemId, code: byId(l.priceItemId)!.code, unitPrice: BigInt(byId(l.priceItemId)!.unitPrice), quantity: qty(l.quantity) }));
+    const c = Number(contingencyPct);
+    const p = Number(coveredPct);
+    if (quoteLines.length === 0 || !Number.isFinite(c) || !Number.isFinite(p) || c < 0 || c > 100 || p < 0 || p > 100) return null;
+    try {
+      return sizeGuarantee({ lines: quoteLines, contingencyBps: Math.round(c * 100), capBps: Math.round(defaults.capPct * 100), coveredCodes: covered, coveredBps: Math.round(p * 100) });
+    } catch {
+      return null;
+    }
+  }, [lines, contingencyPct, coveredPct, covered]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setLine = (key: string, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
@@ -135,7 +150,8 @@ export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: {
   }
 
   return (
-    <form onSubmit={createEpisode} className="flex flex-col gap-6">
+    <form onSubmit={createEpisode} className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="flex min-w-0 flex-col gap-6">
       <Card title="Patient">
         <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
           <Field label="Refer to the patient as" required value={patientLabel} onChange={(e) => setPatientLabel(e.target.value)} placeholder="Maria L." hint="A short label. Payers see it; no medical details." />
@@ -143,7 +159,7 @@ export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: {
         </div>
       </Card>
 
-      <Card title="Quote" aside={<strong className="font-mono text-base">{formatMoney(quote)}</strong>}>
+      <Card title="Quote" aside={<Money value={quote} className="text-base font-semibold" />}>
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
           {lines.map((l, i) => {
             const item = byId(l.priceItemId);
@@ -156,7 +172,7 @@ export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: {
                   ))}
                 </Select>
                 <Field label="Quantity" inputMode="numeric" value={l.quantity} onChange={(e) => setLine(l.key, { quantity: e.target.value })} />
-                <span className="flex min-h-11 items-center justify-end font-mono text-sm">{item ? formatMoney(BigInt(item.unitPrice) * BigInt(qty(l.quantity))) : "—"}</span>
+                <span className="flex min-h-11 items-center justify-end text-sm font-semibold">{item ? <Money value={BigInt(item.unitPrice) * BigInt(qty(l.quantity))} /> : "—"}</span>
                 <button type="button" aria-label={`Remove item ${i + 1}`} disabled={lines.length === 1} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))} className="h-11 w-11 cursor-pointer rounded-full border-0 bg-transparent text-muted hover:bg-chip disabled:opacity-30">✕</button>
               </li>
             );
@@ -190,8 +206,29 @@ export function NewEpisodeFlow({ items, defaults }: { items: Item[]; defaults: {
         </label>
       </Card>
 
-      {error && <p role="alert" className="m-0 text-sm text-warn">{error}</p>}
-      <Button type="submit" disabled={busy || quote === 0n} className="self-start">{busy ? "Sizing…" : "Size the guarantee"}</Button>
+      </div>
+
+      <aside className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-5 lg:sticky lg:top-6" aria-label="Summary">
+        <span className="eyebrow">Summary</span>
+        <dl className="m-0 flex flex-col gap-2.5 text-sm">
+          <div className="flex justify-between gap-3"><dt className="text-muted">Quote</dt><dd className="m-0"><Money value={quote} /></dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-muted">Contingency</dt><dd className="m-0">{contingencyPct || 0}%</dd></div>
+          <div className="flex justify-between gap-3 border-t border-line pt-2.5"><dt className="font-semibold">Guarantee</dt><dd className="m-0"><Money value={preview?.guarantee ?? 0n} display className="text-xl font-bold" /></dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-muted">Per-charge cap</dt><dd className="m-0"><Money value={preview?.perChargeCap ?? 0n} /></dd></div>
+        </dl>
+        {preview && preview.guarantee > 0n && (
+          <div className="flex flex-col gap-1.5">
+            <SplitBar covered={preview.covererOwes} total={preview.guarantee} />
+            <span className="flex justify-between text-xs text-muted">
+              <span>Coverer <Money value={preview.covererOwes} /></span>
+              <span>Family <Money value={preview.familyOwes} /></span>
+            </span>
+          </div>
+        )}
+        <p className="m-0 text-xs leading-relaxed text-muted">An estimate with the agent&apos;s own rule. The agent confirms it and records why.</p>
+        {error && <p role="alert" className="m-0 text-sm text-warn">{error}</p>}
+        <Button type="submit" disabled={busy || quote === 0n} className="w-full">{busy ? "Sizing…" : "Size the guarantee"}</Button>
+      </aside>
     </form>
   );
 }
