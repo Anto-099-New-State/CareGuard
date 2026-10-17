@@ -340,6 +340,10 @@ email_optional = false
 [auth.web3.solana]
 enabled = false
 
+# Sign in with Ethereum (EIP-4361). CareGuard is wallet-only: everyone signs in with the wallet they pay or get paid with.
+[auth.web3.ethereum]
+enabled = true
+
 # Use Firebase Auth as a third-party provider alongside Supabase Auth.
 [auth.third_party.firebase]
 enabled = false
