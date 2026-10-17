@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { addressUrl, config } from "@/lib/config";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
-import { ApprovalsIcon, DashboardIcon, EpisodesIcon, LedgerIcon, PriceListIcon } from "./icons";
+import { ApprovalsIcon, DashboardIcon, EpisodesIcon, LedgerIcon, PayersIcon, PriceListIcon } from "./icons";
 
 type Item = { href: string; label: string; icon: ReactNode };
 export type ShellUser = { name: string; wallet: string | null; role: string; initials: string } | null;
@@ -31,6 +31,7 @@ function groupsFor(provider: boolean, approver: boolean) {
         { href: "/team/traction", label: "Traction", icon: <LedgerIcon /> },
       ],
     });
+  groups.push({ title: "You", items: [{ href: "/account", label: "Account & role", icon: <PayersIcon /> }] });
   return groups;
 }
 
@@ -99,7 +100,7 @@ function UserBlock({ user }: { user: ShellUser }) {
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-sm font-semibold">{user.name}</span>
         <span className="truncate text-[11px] text-muted">
-          {user.role}
+          <Link href="/account" className="hover-link">{user.role}</Link>
           {user.wallet && <> · <span className="font-mono">{short(user.wallet)}</span></>}
         </span>
         <form action="/auth/signout" method="post">

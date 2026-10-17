@@ -70,8 +70,9 @@ export async function getProfile(caller: Caller): Promise<Profile | null> {
 }
 
 export async function requireProvider(caller: Caller): Promise<ProviderRow> {
-  const res = await db().from("providers").select("*").eq("user_id", caller.userId).maybeSingle();
-  return must(res, "This wallet isn't set up as a hospital or clinic. Choose “Hospital” when you first sign in.") as ProviderRow;
+  const [res, profile] = await Promise.all([db().from("providers").select("*").eq("user_id", caller.userId).maybeSingle(), getProfile(caller)]);
+  if (profile?.role !== "provider") throw new UserError("You're using CareGuard as a patient. Switch to Hospital in Account & role to do this.", 403);
+  return must(res, "This wallet isn't set up as a hospital or clinic. Switch to Hospital in Account & role.") as ProviderRow;
 }
 
 /** The approver is whoever holds the key the contract checks signatures against (or a listed team account). */

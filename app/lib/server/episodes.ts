@@ -159,24 +159,28 @@ async function logDecisionOnchain(ep: EpisodeRow, decisionId: string, kind: Deci
 // ------------------------------------------------------------------ provider setup
 
 /**
- * First sign-in: the wallet picks a role. Hospitals also get a provider row, paid at the wallet they signed in with.
- * Safe to call again: it updates the name and never changes the role.
+ * Sets the wallet's role: chosen at first sign-in (the default) and changeable any time from Account & role.
+ * `name` is the hospital's name for the hospital role and the person's name for the patient role.
+ * Switching keeps all data: the hospital's episodes and the patient's treatments stay where they are.
  */
-export async function createProfile(caller: Caller, input: { role: "provider" | "patient"; name: string }) {
-  const name = input.name.trim();
-  if (!name) throw new UserError(input.role === "provider" ? "Enter the hospital or clinic name." : "Enter your name.");
+export async function saveProfile(caller: Caller, input: { role: "provider" | "patient"; name?: string }) {
+  const name = (input.name ?? "").trim();
   const wallet = caller.wallet.toLowerCase();
-  const existing = (await db().from("profiles").select("*").eq("user_id", caller.userId).maybeSingle()).data as { role: string } | null;
-  if (existing && existing.role !== input.role) throw new UserError("This wallet already has a role. Use a different wallet for the other role.", 409);
-  const profile = must(
-    await db().from("profiles").upsert({ user_id: caller.userId, wallet_address: wallet, role: input.role, display_name: name }).select().single(),
-  );
+  const existing = (await db().from("profiles").select("*").eq("user_id", caller.userId).maybeSingle()).data as { display_name: string } | null;
+  const prov = (await db().from("providers").select("id, name").eq("user_id", caller.userId).maybeSingle()).data as { id: string; name: string } | null;
+
   if (input.role === "provider") {
-    const prov = (await db().from("providers").select("id").eq("user_id", caller.userId).maybeSingle()).data;
-    if (prov) await db().from("providers").update({ name }).eq("id", prov.id);
-    else must(await db().from("providers").insert({ user_id: caller.userId, name, wallet_address: caller.wallet }).select().single());
+    if (!prov && !name) throw new UserError("Enter the hospital or clinic name.");
+    if (prov && name && name !== prov.name) await db().from("providers").update({ name }).eq("id", prov.id);
+    if (!prov) must(await db().from("providers").insert({ user_id: caller.userId, name, wallet_address: caller.wallet }).select().single());
+  } else if (!existing && !name) {
+    throw new UserError("Enter your name.");
   }
-  return profile;
+
+  const displayName = input.role === "patient" ? name || existing?.display_name || prov?.name || "" : existing?.display_name || name || prov?.name || "";
+  return must(
+    await db().from("profiles").upsert({ user_id: caller.userId, wallet_address: wallet, role: input.role, display_name: displayName }).select().single(),
+  );
 }
 
 export type PriceItemInput = { code: string; label: string; unitPrice: bigint };

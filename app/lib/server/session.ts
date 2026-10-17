@@ -13,7 +13,9 @@ export async function getSession(): Promise<Session | null> {
     db().from("providers").select("*").eq("user_id", caller.userId).maybeSingle(),
     isApprover(caller),
   ]);
-  return { caller, profile, provider: (provider as ProviderRow | null) ?? null, approver };
+  // The chosen role decides the view: a hospital wallet that switched to Patient sees the patient side.
+  const asProvider = profile ? profile.role === "provider" : false;
+  return { caller, profile, provider: asProvider ? ((provider as ProviderRow | null) ?? null) : null, approver };
 }
 
 /**
