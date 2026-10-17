@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { EmptyState } from "@/components/ui/Bits";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { TxLink } from "@/components/ui/Tx";
 import { episodeAccess } from "@/lib/server/auth";
 import { UserError } from "@/lib/server/errors";
@@ -42,22 +42,19 @@ export default async function Log({ params }: { params: Promise<{ id: string }> 
   return (
     <>
       <LiveRefresh channel={`log-${id}`} tables={["decisions"]} episodeId={id} />
-      <div className="flex flex-col gap-1">
-        <Link href={back} className="hover-link text-xs text-muted">← Back to the episode</Link>
-        <h1 className="m-0 font-display text-[28px] font-bold tracking-[-0.02em]">
-          Decision log · #{view.episode.contract_episode_id ?? "—"} {view.episode.patient_label}
-        </h1>
-        <p className="m-0 max-w-[640px] text-sm text-muted">
-          Each decision is written here with its reason before any money moves, and its salted hash is logged on Arc so anyone can check it wasn&apos;t changed.
-        </p>
-      </div>
+      <PageHeader
+        back={{ href: back, label: "Back to the episode" }}
+        title="Decision log"
+        meta={<span className="rounded-full bg-chip px-2.5 py-1 text-xs font-semibold text-muted">#{view.episode.contract_episode_id ?? "—"} {view.episode.patient_label}</span>}
+        subtitle="Each decision is written here with its reason before any money moves. Its salted hash is logged on Arc, so anyone can check it wasn't changed afterwards."
+      />
       {decisions.length === 0 ? (
         <EmptyState title="No decisions yet">The agent&apos;s first entry is the guarantee sizing, as soon as the episode is created.</EmptyState>
       ) : (
         <ol className="m-0 flex list-none flex-col p-0">
           {decisions.map((d, i) => (
-            <li key={d.id} className="a-in grid grid-cols-[64px_16px_minmax(0,1fr)] gap-x-4 pb-6" style={{ animationDelay: `${i * 0.05}s` }}>
-              <time dateTime={d.created_at} className="pt-0.5 font-mono text-sm text-muted">
+            <li key={d.id} className="grid grid-cols-[56px_16px_minmax(0,1fr)] gap-x-4 pb-7">
+              <time dateTime={d.created_at} className="pt-0.5 text-sm font-semibold text-muted tabular-nums">
                 {new Date(d.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
               </time>
               <span className="relative flex justify-center" aria-hidden="true">

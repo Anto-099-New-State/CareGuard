@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { db, type PriceItemRow } from "@/lib/server/db";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { requireSession } from "@/lib/server/session";
 import { PriceListEditor } from "./PriceListEditor";
 
@@ -14,13 +15,10 @@ export default async function Prices() {
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <h1 className="m-0 font-display text-[28px] font-bold tracking-[-0.02em]">Price list</h1>
-        <p className="m-0 max-w-[620px] text-sm leading-relaxed text-muted">
-          Your own prices, one line per item. The agent pays a charge straight away only when it matches a line here and the quote; anything else
-          goes to a human approver.
-        </p>
-      </div>
+      <PageHeader
+        title="Price list"
+        subtitle="Your own prices, one line per item. The agent pays a charge straight away only when it matches a line here and the quote; anything else goes to a human approver."
+      />
       <PriceListEditor initial={items} />
     </>
   );

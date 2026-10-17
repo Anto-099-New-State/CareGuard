@@ -11,7 +11,7 @@ import { arc } from "@/lib/chains";
 import { api } from "@/lib/client/api";
 
 export type QueueItem = {
-  charge: { id: string; number: number; amount_usdc: number; covered_usdc: number; description: string; created_at: string };
+  charge: { id: string; number: number; amount_usdc: number; covered_usdc: number; description: string; created_at: string; price_items: { code: string; label: string } | null };
   episode: { id: string; contractEpisodeId: number | null; patientLabel: string };
   reason: string;
   request: {
@@ -90,57 +90,80 @@ function Row({ item, approver, onDone }: { item: QueueItem; approver: Address; o
   };
 
   return (
-    <li className="flex flex-col gap-3 border-b border-line px-4 py-4 last:border-b-0 focus-within:bg-surface">
-      <div className="grid grid-cols-[56px_minmax(0,1fr)_auto_48px] items-baseline gap-4 max-sm:grid-cols-[48px_minmax(0,1fr)]">
-        <span className="font-mono text-sm text-muted">#{item.charge.number}</span>
-        <div className="flex min-w-0 flex-col gap-1">
-          <Link href={`/provider/episodes/${item.episode.id}`} className="hover-link text-sm font-semibold">
-            Episode #{item.episode.contractEpisodeId} · {item.episode.patientLabel}
-          </Link>
-          <span className="text-sm text-muted">{item.reason}</span>
+    <li className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-5 focus-within:border-strong">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <span className="flex flex-wrap items-center gap-2">
+            <strong className="text-[15px]">
+              #{item.charge.number} {item.charge.price_items?.label ?? "Off-list charge"}
+            </strong>
+            {item.charge.price_items && <span className="font-mono text-[11px] text-muted">{item.charge.price_items.code}</span>}
+            <span className="text-xs text-muted" title={new Date(item.charge.created_at).toLocaleString()}>· waiting {age(item.charge.created_at)}</span>
+          </span>
+          <p className="m-0 flex gap-2 rounded-xl bg-amber-bg px-3 py-2 text-sm text-ink">
+            <span className="flex-none font-semibold text-amber">Agent:</span>
+            {item.reason}
+          </p>
           {item.charge.description && <span className="text-xs text-muted">Provider note: {item.charge.description}</span>}
         </div>
-        <Money value={item.charge.amount_usdc} className="text-sm font-semibold max-sm:col-start-2" />
-        <span className="text-right text-xs text-muted max-sm:hidden" title={new Date(item.charge.created_at).toLocaleString()}>{age(item.charge.created_at)}</span>
+        <div className="flex flex-col items-end gap-1">
+          <Money value={item.charge.amount_usdc} display className="text-2xl font-bold" />
+          <span className="text-xs text-muted">
+            <Money value={item.charge.covered_usdc} /> coverer · <Money value={BigInt(String(item.charge.amount_usdc)) - BigInt(String(item.charge.covered_usdc))} /> family
+          </span>
+        </div>
       </div>
 
       {mode === "idle" && (
-        <div className="flex gap-2 pl-[72px] max-sm:pl-0">
+        <div className="flex flex-wrap gap-2">
           <Button onClick={() => setMode("approve")}>Approve…</Button>
           <Button variant="secondary" onClick={() => setMode("reject")}>Reject…</Button>
         </div>
       )}
       {mode === "approve" && (
-        <div className="flex flex-col gap-3 rounded-[12px] border border-line bg-card p-4 sm:ml-[72px]">
+        <div className="flex flex-col gap-3 rounded-xl border border-strong/40 bg-surface p-4">
           <p className="m-0 text-sm font-semibold">{item.request.consequence}</p>
-          <p className="m-0 text-xs text-muted">Your wallet will ask you to sign. The signature is valid until {new Date(Number(item.request.message.deadline) * 1000).toLocaleTimeString()}.</p>
-          <div className="flex gap-2">
+          <p className="m-0 text-xs text-muted">Your wallet will ask you to sign (no gas). The signature is valid until {new Date(Number(item.request.message.deadline) * 1000).toLocaleTimeString()}.</p>
+          <div className="flex flex-wrap gap-2">
             <Button onClick={approve} disabled={busy}>{busy ? "Waiting for wallet…" : "Sign and approve"}</Button>
             <Button variant="ghost" onClick={() => setMode("idle")} disabled={busy}>Cancel</Button>
           </div>
         </div>
       )}
       {mode === "reject" && (
-        <form onSubmit={reject} className="flex flex-col gap-3 rounded-[12px] border border-line bg-card p-4 sm:ml-[72px]">
+        <form onSubmit={reject} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
           <Field label="Reason the provider will see" required value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button type="submit" variant="danger" disabled={busy || !reason.trim()}>{busy ? "Rejecting…" : `Reject #${item.charge.number}`}</Button>
             <Button variant="ghost" onClick={() => setMode("idle")} disabled={busy}>Cancel</Button>
           </div>
         </form>
       )}
-      {error && <p role="alert" className="m-0 text-sm text-warn sm:pl-[72px]">{error}</p>}
+      {error && <p role="alert" className="m-0 text-sm text-warn">{error}</p>}
     </li>
   );
 }
 
 export function ApprovalQueue({ items, approver }: { items: QueueItem[]; approver: Address }) {
   const router = useRouter();
+  const groups = [...new Map(items.map((i) => [i.episode.id, i.episode])).values()].map((ep) => ({ ep, items: items.filter((i) => i.episode.id === ep.id) }));
   return (
-    <ul className="m-0 list-none rounded-[14px] border border-line p-0">
-      {items.map((item) => (
-        <Row key={item.charge.id} item={item} approver={approver} onDone={() => router.refresh()} />
+    <div className="flex flex-col gap-7">
+      {groups.map(({ ep, items: list }) => (
+        <section key={ep.id} aria-labelledby={`ep-${ep.id}`} className="flex flex-col gap-3">
+          <h2 id={`ep-${ep.id}`} className="m-0 flex flex-wrap items-baseline gap-2 text-sm">
+            <Link href={`/provider/episodes/${ep.id}`} className="hover-link font-display text-lg font-bold">
+              {ep.patientLabel}
+            </Link>
+            <span className="text-muted">Episode #{ep.contractEpisodeId} · {list.length} waiting</span>
+          </h2>
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            {list.map((item) => (
+              <Row key={item.charge.id} item={item} approver={approver} onDone={() => router.refresh()} />
+            ))}
+          </ul>
+        </section>
       ))}
-    </ul>
+    </div>
   );
 }

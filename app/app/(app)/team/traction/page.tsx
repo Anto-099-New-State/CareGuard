@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Card, Stat } from "@/components/ui/Bits";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { traction } from "@/lib/server/episodes";
 import { requireSession } from "@/lib/server/session";
 
@@ -14,10 +15,7 @@ export default async function Traction() {
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <h1 className="m-0 font-display text-[28px] font-bold tracking-[-0.02em]">Traction</h1>
-        <p className="m-0 max-w-[640px] text-sm text-muted">Real providers and payers only. Episodes marked as internal tests are excluded. Each network is counted separately.</p>
-      </div>
+      <PageHeader title="Traction" subtitle="Real providers and payers only. Episodes marked as internal tests are excluded, and each network is counted separately." />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,380px),1fr))] gap-5">
         {(["mainnet", "testnet"] as const).map((n) => (
           <Card key={n} title={n === "mainnet" ? "Arc Mainnet (real USDC)" : "Arc Testnet"}>
@@ -26,8 +24,8 @@ export default async function Traction() {
               <Stat label="Episodes">{t[n].episodes}</Stat>
               <Stat label="Payers">{t[n].payers}</Stat>
               <Stat label="Charges paid">{t[n].chargesPaid}</Stat>
-              <Stat label="Paid to providers"><span className="font-mono">{t[n].paidVolumeUsdc} USDC</span></Stat>
-              <Stat label="Funded by payers"><span className="font-mono">{t[n].fundedVolumeUsdc} USDC</span></Stat>
+              <Stat label="Paid to providers"><span className="amount">{t[n].paidVolumeUsdc}<span className="ccy">USDC</span></span></Stat>
+              <Stat label="Funded by payers"><span className="amount">{t[n].fundedVolumeUsdc}<span className="ccy">USDC</span></span></Stat>
             </div>
           </Card>
         ))}

@@ -541,7 +541,7 @@ async function approvalRequest(charge: ChargeRow, ep: EpisodeRow) {
 
 export async function listApprovals() {
   const rows = must(
-    await db().from("charges").select("*, episodes(*), decisions(reason, created_at, kind)").eq("status", "escalated").order("created_at"),
+    await db().from("charges").select("*, episodes(*), decisions(reason, created_at, kind), price_items(code, label)").eq("status", "escalated").order("created_at"),
   ) as (ChargeRow & { episodes: EpisodeRow; decisions: { reason: string; created_at: string; kind: string }[] })[];
   return Promise.all(
     rows.map(async (r) => {
