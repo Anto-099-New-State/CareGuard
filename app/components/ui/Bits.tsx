@@ -41,8 +41,8 @@ export function SplitBar({ covered, total, compact = false }: { covered: bigint;
   return (
     <div className="flex min-w-[120px] flex-col gap-1">
       <div className={`flex gap-[2px] overflow-hidden rounded-full ${compact ? "h-1.5" : "h-2.5"}`} role="img" aria-label={`${pct}% coverer, ${100 - pct}% family`}>
-        {pct > 0 && <span className="a-grow bg-strong" style={{ flex: `${pct} 1 0` }} />}
-        {pct < 100 && <span className="a-grow bg-accent [animation-delay:.15s]" style={{ flex: `${100 - pct} 1 0` }} />}
+        {pct > 0 && <span className="bg-strong" style={{ flex: `${pct} 1 0` }} />}
+        {pct < 100 && <span className="bg-accent" style={{ flex: `${100 - pct} 1 0` }} />}
       </div>
       {!compact && (
         <span className="flex justify-between gap-2 text-[11px] text-muted">

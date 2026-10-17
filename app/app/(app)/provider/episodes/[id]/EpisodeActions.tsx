@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { AmountField, Field, Select } from "@/components/ui/Field";
+import { Money } from "@/components/ui/Money";
 import { TxStatus, type TxState } from "@/components/ui/Tx";
 import { api } from "@/lib/client/api";
 import { formatMoney } from "@/lib/money";
@@ -66,7 +67,7 @@ export function SubmitCharge({ episodeId, items }: { episodeId: string; items: I
         {item ? (
           <div className="flex flex-col gap-1.5">
             <span className="text-[13px] font-semibold">Amount</span>
-            <span className="flex min-h-11 items-center font-mono text-sm">{formatMoney(BigInt(item.unitPrice) * BigInt(q))}</span>
+            <span className="flex min-h-11 items-center text-base font-semibold"><Money value={BigInt(item.unitPrice) * BigInt(q)} /></span>
           </div>
         ) : (
           <AmountField label="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
@@ -87,9 +88,8 @@ export function SubmitCharge({ episodeId, items }: { episodeId: string; items: I
 
 export function DischargeButton({ episodeId, coverer, family }: { episodeId: string; coverer: string; family: string }) {
   const router = useRouter();
-  const [confirming, setConfirming] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
   const [tx, setTx] = useState<TxState | null>(null);
-  const sentence = `Discharge: return ${formatMoney(BigInt(coverer))} to the coverer and ${formatMoney(BigInt(family))} to family.`;
 
   const run = async () => {
     setTx({ status: "pending" });
@@ -102,16 +102,35 @@ export function DischargeButton({ episodeId, coverer, family }: { episodeId: str
     }
   };
 
-  if (tx) return <TxStatus state={tx} label="Discharge" />;
-  if (!confirming) return <Button variant="secondary" className="self-start" onClick={() => setConfirming(true)}>Discharge…</Button>;
   return (
-    <div className="flex flex-col gap-3 rounded-[12px] border border-line p-4">
-      <p className="m-0 text-sm font-semibold">{sentence}</p>
-      <p className="m-0 text-xs text-muted">This can&apos;t be undone. Charges still waiting for approval won&apos;t be paid.</p>
-      <div className="flex gap-3">
-        <Button onClick={run}>Discharge and refund</Button>
-        <Button variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button>
-      </div>
-    </div>
+    <>
+      <Button variant="dark" onClick={() => dialog.current?.showModal()}>Discharge…</Button>
+      <dialog
+        ref={dialog}
+        aria-labelledby="discharge-title"
+        className="m-auto w-[min(92vw,460px)] rounded-2xl border border-line bg-card p-0 text-ink shadow-[0_40px_80px_-30px_rgba(20,16,60,.55)] backdrop:bg-black/40"
+        onClose={() => tx?.status === "failed" && setTx(null)}
+      >
+        <div className="flex flex-col gap-4 p-6">
+          <h2 id="discharge-title" className="m-0 font-display text-xl font-bold">Discharge this episode?</h2>
+          <p className="m-0 text-sm leading-relaxed">
+            Treatment ends and everything left goes back straight away: <strong><Money value={coverer} /></strong> to the coverer and{" "}
+            <strong><Money value={family} /></strong> to family.
+          </p>
+          <p className="m-0 text-xs text-muted">This can&apos;t be undone. Charges still waiting for approval or a top-up won&apos;t be paid.</p>
+          {tx && <TxStatus state={tx} label="Discharge" />}
+          <div className="flex flex-wrap justify-end gap-2.5">
+            {tx?.status === "confirmed" ? (
+              <Button onClick={() => dialog.current?.close()}>Done</Button>
+            ) : (
+              <>
+                <Button variant="ghost" onClick={() => dialog.current?.close()} disabled={tx?.status === "pending"}>Cancel</Button>
+                <Button onClick={run} disabled={tx?.status === "pending"}>{tx?.status === "pending" ? "Discharging…" : "Discharge and refund"}</Button>
+              </>
+            )}
+          </div>
+        </div>
+      </dialog>
+    </>
   );
 }
