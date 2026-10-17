@@ -56,6 +56,9 @@ contract CareGuardEpisode is EIP712, ReentrancyGuard {
     uint256 public nextEpisodeId = 1;
     mapping(uint256 => Episode) public episodes;
     mapping(bytes32 => bool) public chargeUsed; // blocks double payment
+    /// @dev Refunds whose transfer failed (e.g. the token froze that payer). Claimable by the payer only.
+    mapping(address => uint256) public pendingRefunds;
+    uint256 public totalPendingRefunds;
 
     event EpisodeCreated(
         uint256 indexed episodeId,
@@ -71,6 +74,8 @@ contract CareGuardEpisode is EIP712, ReentrancyGuard {
     event MarginCall(uint256 indexed episodeId, address indexed payer, uint256 amount, bytes32 reasonHash);
     event DecisionLogged(uint256 indexed episodeId, DecisionKind kind, bytes32 decisionHash);
     event Refunded(uint256 indexed episodeId, address indexed payer, uint256 amount);
+    event RefundDeferred(uint256 indexed episodeId, address indexed payer, uint256 amount);
+    event RefundClaimed(address indexed payer, uint256 amount);
     event EpisodeClosed(uint256 indexed episodeId);
     event EpisodeExpired(uint256 indexed episodeId);
     event ApproverChanged(address indexed previousApprover, address indexed newApprover);
@@ -94,6 +99,7 @@ contract CareGuardEpisode is EIP712, ReentrancyGuard {
     error InsufficientFamilyBalance(uint256 needed, uint256 available);
     error ApprovalExpired();
     error InvalidApproval();
+    error NothingToClaim();
 
     modifier onlyAgent() {
         if (msg.sender != agent) revert NotAgent();
@@ -212,6 +218,16 @@ contract CareGuardEpisode is EIP712, ReentrancyGuard {
         _refundAll(episodeId, e);
     }
 
+    /// @notice Collects refunds that couldn't be sent automatically. Money only ever goes back to the payer.
+    function claimRefund() external nonReentrant {
+        uint256 amount = pendingRefunds[msg.sender];
+        if (amount == 0) revert NothingToClaim();
+        pendingRefunds[msg.sender] = 0;
+        totalPendingRefunds -= amount;
+        emit RefundClaimed(msg.sender, amount);
+        usdc.safeTransfer(msg.sender, amount);
+    }
+
     // ---------------------------------------------------------------- approver
 
     /// @notice Lets the approver rotate their own key. Nobody else can change it.
@@ -281,13 +297,20 @@ contract CareGuardEpisode is EIP712, ReentrancyGuard {
         uint256 toFamily = e.familyBalance;
         e.covererBalance = 0;
         e.familyBalance = 0;
-        if (toCoverer > 0) {
-            emit Refunded(episodeId, e.coverer, toCoverer);
-            usdc.safeTransfer(e.coverer, toCoverer);
-        }
-        if (toFamily > 0) {
-            emit Refunded(episodeId, e.family, toFamily);
-            usdc.safeTransfer(e.family, toFamily);
+        _refund(episodeId, e.coverer, toCoverer);
+        _refund(episodeId, e.family, toFamily);
+    }
+
+    /// @dev Sends a refund, or keeps it claimable if the transfer fails, so one payer can never block the other's refund.
+    function _refund(uint256 episodeId, address payer, uint256 amount) private {
+        if (amount == 0) return;
+        (bool ok, bytes memory ret) = address(usdc).call(abi.encodeCall(IERC20.transfer, (payer, amount)));
+        if (ok && (ret.length == 0 || abi.decode(ret, (bool)))) {
+            emit Refunded(episodeId, payer, amount);
+        } else {
+            pendingRefunds[payer] += amount;
+            totalPendingRefunds += amount;
+            emit RefundDeferred(episodeId, payer, amount);
         }
     }
 }

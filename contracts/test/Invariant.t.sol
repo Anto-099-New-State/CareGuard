@@ -3,12 +3,12 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {CareGuardEpisode} from "../src/CareGuardEpisode.sol";
-import {MockUSDC} from "./mocks/MockUSDC.sol";
+import {FreezableUSDC} from "./mocks/FreezableUSDC.sol";
 
 /// @dev Drives the contract with random sequences of every money-moving action.
 contract Handler is Test {
     CareGuardEpisode internal cg;
-    MockUSDC internal usdc;
+    FreezableUSDC internal usdc;
     address internal agent;
     address internal provider = makeAddr("h-provider");
     address internal coverer = makeAddr("h-coverer");
@@ -19,7 +19,7 @@ contract Handler is Test {
     uint256 public totalIn;
     uint256 public totalOut;
 
-    constructor(CareGuardEpisode cg_, MockUSDC usdc_, address agent_) {
+    constructor(CareGuardEpisode cg_, FreezableUSDC usdc_, address agent_) {
         cg = cg_;
         usdc = usdc_;
         agent = agent_;
@@ -73,6 +73,20 @@ contract Handler is Test {
         } catch {}
     }
 
+    /// Freezes or unfreezes a payer, so refunds sometimes defer.
+    function toggleFreeze(bool asFamily, bool value) external {
+        usdc.setFrozen(asFamily ? family : coverer, value);
+    }
+
+    function claim(bool asFamily) external {
+        address who = asFamily ? family : coverer;
+        uint256 before = usdc.balanceOf(address(cg));
+        vm.prank(who);
+        try cg.claimRefund() {
+            totalOut += before - usdc.balanceOf(address(cg));
+        } catch {}
+    }
+
     function warpAndRefund(uint256 seed, uint256 dt) external {
         if (ids.length == 0) return;
         vm.warp(block.timestamp + bound(dt, 0, 40 days));
@@ -85,18 +99,18 @@ contract Handler is Test {
 
 contract InvariantTest is Test {
     CareGuardEpisode internal cg;
-    MockUSDC internal usdc;
+    FreezableUSDC internal usdc;
     Handler internal handler;
 
     function setUp() public {
-        usdc = new MockUSDC();
+        usdc = new FreezableUSDC();
         address agent = makeAddr("agent");
         cg = new CareGuardEpisode(usdc, agent, makeAddr("approver"));
         handler = new Handler(cg, usdc, agent);
         targetContract(address(handler));
     }
 
-    /// USDC balance of contract == sum over open episodes of (covererBalance + familyBalance).
+    /// USDC balance of contract == sum over open episodes of (covererBalance + familyBalance) + refunds waiting to be claimed.
     function invariant_balanceMatchesOpenEpisodes() public view {
         uint256 sum;
         uint256 n = handler.idCount();
@@ -108,7 +122,7 @@ contract InvariantTest is Test {
                 sum += e.covererBalance + e.familyBalance;
             }
         }
-        assertEq(usdc.balanceOf(address(cg)), sum);
+        assertEq(usdc.balanceOf(address(cg)), sum + cg.totalPendingRefunds());
     }
 
     /// Money is never created or lost: what came in equals what is held plus what went out.
