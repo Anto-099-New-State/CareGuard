@@ -4,7 +4,7 @@ import { marginCallsNeeded, reviewCharge, type EpisodeState, type PastCharge } f
 import { sizeGuarantee, type QuoteLine } from "../agent/sizing";
 import { publicClient } from "../chains";
 import { config } from "../config";
-import { CONTRACT_STATUS, DECISION_KIND, careGuard, careGuardAbi } from "../contract";
+import { CONTRACT_STATUS, DECISION_KIND, careGuard, careGuardAbi, erc20Abi } from "../contract";
 import { approveChargeTypes, eip712Domain } from "../eip712";
 import { formatAmount, type Currency } from "../money";
 import { payerFor, type Caller } from "./auth";
@@ -370,7 +370,9 @@ export async function addPayers(provider: ProviderRow, episodeId: string, input:
  * We trust only the chain: the receipt must contain this episode's Funded event from the caller's wallet.
  * Reporting the same transaction twice changes nothing.
  */
-export async function recordFunding(caller: Caller, episodeId: string, txHash: Hash) {
+export type FundingFx = { currencyIn: "EURC"; amountIn: bigint; swapTxHash: Hash; quotedOut: bigint; minOut: bigint; route: "appkit" };
+
+export async function recordFunding(caller: Caller, episodeId: string, txHash: Hash, fx?: FundingFx) {
   const ep = await loadEpisode(episodeId);
   const payer = await payerFor(caller, episodeId);
   if (!payer?.wallet_address) throw new UserError("Your wallet isn't a payer on this episode.", 403);
@@ -400,6 +402,7 @@ export async function recordFunding(caller: Caller, episodeId: string, txHash: H
       .single(),
   );
   must(await db().from("payers").update({ funded_usdc: str(big(payer.funded_usdc) + amount) }).eq("id", payer.id).select().single());
+  if (fx) await recordConversion(ep, payer, fx);
   const fresh = await refreshFromChain(ep);
 
   // Charges that were waiting for this top-up get another review.
@@ -706,4 +709,54 @@ export async function traction() {
     };
   };
   return { testnet: byNetwork("testnet"), mainnet: byNetwork("mainnet") };
+}
+
+// ------------------------------------------------------------------ currency conversion (agent FX check)
+
+/**
+ * The payer converted their currency to USDC (in their own wallet) before funding. The agent verifies the swap onchain,
+ * measures what was actually received against the quote, and writes an FX decision to the ledger with the rate and route.
+ */
+async function recordConversion(ep: EpisodeRow, payer: PayerRow, fx: FundingFx) {
+  const { data: seen } = await db().from("transactions").select("id").eq("network", config.network).eq("tx_hash", fx.swapTxHash).maybeSingle();
+  if (seen) return;
+  let receipt;
+  try {
+    receipt = await publicClient.getTransactionReceipt({ hash: fx.swapTxHash });
+  } catch {
+    return; // swap not visible yet: the funding itself is already recorded; the indexer keeps the cache right
+  }
+  if (receipt.status !== "success" || receipt.from.toLowerCase() !== payer.wallet_address!.toLowerCase()) return;
+
+  // USDC that actually arrived in the payer's wallet from the swap.
+  const received = parseEventLogs({ abi: erc20Abi, eventName: "Transfer", logs: receipt.logs })
+    .filter((l) => l.address.toLowerCase() === config.usdc.toLowerCase() && l.args.to.toLowerCase() === payer.wallet_address!.toLowerCase())
+    .reduce((sum, l) => sum + l.args.value, 0n);
+  const out = received > 0n ? received : fx.quotedOut;
+  const rate = fx.amountIn > 0n ? Number((out * 1_000_000n) / fx.amountIn) / 1_000_000 : 0;
+  const withinQuote = out >= fx.minOut;
+  const reason =
+    `Converted ${formatAmount(fx.amountIn)} ${fx.currencyIn} to ${formatAmount(out)} USDC via Circle App Kit (1 ${fx.currencyIn} = ${rate.toFixed(4)} USDC). ` +
+    (withinQuote
+      ? `Quoted ${formatAmount(fx.quotedOut)}, minimum ${formatAmount(fx.minOut)}: within the quote.`
+      : `Below the quoted minimum of ${formatAmount(fx.minOut)}: flagged for review.`);
+
+  must(
+    await db()
+      .from("transactions")
+      .insert({ episode_id: ep.id, kind: "swap", payer_id: payer.id, amount: str(fx.amountIn), currency: fx.currencyIn, tx_hash: fx.swapTxHash, status: "confirmed", network: config.network })
+      .select()
+      .single(),
+  );
+  const inputs = { route: fx.route, currencyIn: fx.currencyIn, amountIn: fx.amountIn, quotedOut: fx.quotedOut, minOut: fx.minOut, received: out };
+  const { salt, hash } = saltedHash({ episodeId: ep.id, kind: "fx", reason, inputs });
+  // The swap transaction itself is the onchain record of this decision.
+  must(
+    await db()
+      .from("decisions")
+      .insert({ episode_id: ep.id, kind: "fx", inputs: json(inputs), outcome: "converted", reason, salt, hash, tx_hash: fx.swapTxHash })
+      .select()
+      .single(),
+  );
+  await db().from("payers").update({ currency: fx.currencyIn }).eq("id", payer.id);
 }
