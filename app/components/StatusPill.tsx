@@ -12,5 +12,5 @@ const styles: Record<EpisodeStatus, { label: string; className: string }> = {
 
 export function StatusPill({ status }: { status: EpisodeStatus }) {
   const s = styles[status];
-  return <span className={`rounded-md px-2.5 py-[5px] text-xs font-semibold whitespace-nowrap ${s.className}`}>● {s.label}</span>;
+  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${s.className}`}>● {s.label}</span>;
 }

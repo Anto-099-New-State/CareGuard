@@ -1,42 +1,28 @@
-import { AppSidebar } from "@/components/AppSidebar";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { AppSidebar, type ShellUser } from "@/components/AppSidebar";
+import { agentSigner } from "@/lib/server/chain";
 import { getSession } from "@/lib/server/session";
 
 export const dynamic = "force-dynamic";
 
+function agentAddress(): string | null {
+  try {
+    return agentSigner().address;
+  } catch {
+    return null; // AGENT_ADDRESS not configured yet
+  }
+}
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await getSession();
   const name = s?.provider?.name ?? s?.caller.email ?? null;
-  const today = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const user: ShellUser = name ? { name, email: s?.caller.email ?? null, initials: name.replace(/[^A-Za-z0-9 ]/g, "").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?" } : null;
 
   return (
-    <div className="flex min-h-screen flex-wrap">
-      <AppSidebar provider={!!s?.provider} approver={!!s?.approver} />
-      <div className="box-border flex min-w-0 flex-[999_1_560px] flex-col gap-7 px-[clamp(16px,3vw,48px)] py-8">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-[22px]">
-          <span className="text-sm font-semibold">Today: {today}</span>
-          <div className="flex flex-wrap items-center gap-[18px] text-sm">
-            <ThemeToggle />
-            <span className="h-6 w-px bg-line" aria-hidden="true" />
-            {name ? (
-              <>
-                <span className="flex items-center gap-2.5 font-semibold">
-                  <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-full bg-strong text-[13px] font-bold text-white">
-                    {name.slice(0, 2).toUpperCase()}
-                  </span>
-                  {s?.provider ? `Welcome back, ${s.provider.name}` : name}
-                </span>
-                <form action="/auth/signout" method="post">
-                  <button type="submit" className="hover-link min-h-11 cursor-pointer border-0 bg-transparent text-sm font-semibold text-muted">Sign out</button>
-                </form>
-              </>
-            ) : (
-              <a href="/signin" className="hover-link font-semibold">Sign in</a>
-            )}
-          </div>
-        </header>
-        <main id="main" className="flex min-w-0 flex-col gap-7">{children}</main>
-      </div>
+    <div className="min-h-screen md:flex">
+      <AppSidebar provider={!!s?.provider} approver={!!s?.approver} agent={agentAddress()} user={user} />
+      <main id="main" className="mx-auto flex w-full max-w-[1240px] min-w-0 flex-1 flex-col gap-8 px-4 pt-6 pb-16 sm:px-6 md:px-10 md:pt-10">
+        {children}
+      </main>
     </div>
   );
 }

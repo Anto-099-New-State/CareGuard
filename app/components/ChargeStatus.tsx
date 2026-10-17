@@ -8,5 +8,5 @@ const styles = {
 /** Charge status with an icon and words, never colour alone. Red is used for rejected only. */
 export function ChargeStatus({ status }: { status: keyof typeof styles }) {
   const s = styles[status];
-  return <span className={`rounded-md px-2.5 py-[5px] text-xs font-semibold whitespace-nowrap ${s.className}`}>{s.label}</span>;
+  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${s.className}`}>{s.label}</span>;
 }

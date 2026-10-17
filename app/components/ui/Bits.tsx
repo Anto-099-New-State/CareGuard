@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 /** Empty states say what will appear and how to add the first item. Never sample data. */
 export function EmptyState({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-start gap-3 rounded-[14px] border border-dashed border-line p-7">
+    <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-line bg-card/60 p-7">
       <strong className="text-base">{title}</strong>
       <div className="m-0 max-w-[560px] text-sm leading-relaxed text-muted">{children}</div>
       {action}
@@ -13,10 +13,10 @@ export function EmptyState({ title, children, action }: { title: string; childre
 
 export function Card({ title, children, className = "", aside }: { title?: ReactNode; children: ReactNode; className?: string; aside?: ReactNode }) {
   return (
-    <section className={`flex flex-col gap-4 rounded-[14px] border border-line bg-card p-[22px] ${className}`}>
+    <section className={`flex min-w-0 flex-col gap-4 rounded-2xl border border-line bg-card p-5 sm:p-6 ${className}`}>
       {(title || aside) && (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          {title && <h2 className="m-0 text-base font-bold">{title}</h2>}
+          {title && <h2 className="m-0 font-display text-lg font-bold tracking-[-0.01em]">{title}</h2>}
           {aside}
         </div>
       )}
@@ -28,8 +28,8 @@ export function Card({ title, children, className = "", aside }: { title?: React
 export function Stat({ label, children, note }: { label: string; children: ReactNode; note?: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <span className="text-xs text-muted">{label}</span>
-      <strong className="text-lg font-semibold">{children}</strong>
+      <span className="text-xs font-semibold text-muted">{label}</span>
+      <strong className="font-display text-xl font-semibold tracking-[-0.01em]">{children}</strong>
       {note && <span className="text-xs text-muted">{note}</span>}
     </div>
   );

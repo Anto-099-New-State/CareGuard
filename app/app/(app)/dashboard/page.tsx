@@ -6,10 +6,11 @@ import { ProviderSetup } from "@/components/ProviderSetup";
 import { StatusPill } from "@/components/StatusPill";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card, EmptyState } from "@/components/ui/Bits";
-import { Money } from "@/components/ui/Money";
+import { Money, toUnits } from "@/components/ui/Money";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { TxLink } from "@/components/ui/Tx";
 import { getDashboard, getPayerEpisodes } from "@/lib/data";
-import { formatMoney } from "@/lib/money";
+import { formatAmount } from "@/lib/money";
 import { requireSession } from "@/lib/server/session";
 import type { EpisodeSummary } from "@/lib/types";
 
@@ -20,6 +21,11 @@ const sum = (xs: bigint[]) => xs.reduce((a, b) => a + b, 0n);
 const held = (e: EpisodeSummary) => e.covererBalance + e.familyBalance;
 const share = (part: bigint, total: bigint) => (total === 0n ? 0 : Number((part * 1000n) / total) / 10);
 
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+}
+
 export default async function Dashboard() {
   const s = await requireSession("/dashboard");
   const payerEpisodes = await getPayerEpisodes(s);
@@ -27,7 +33,7 @@ export default async function Dashboard() {
   if (!s.provider) {
     return (
       <>
-        <h1 className="m-0 font-display text-[28px] font-bold tracking-[-0.02em]">Welcome to CareGuard</h1>
+        <PageHeader title="Welcome to CareGuard" subtitle="Escrow for medical treatment: the money is committed before treatment and paid one approved charge at a time." />
         {s.approver && (
           <Card title="You're an approver">
             <p className="m-0 text-sm text-muted">Charges the agent escalates wait for your signature.</p>
@@ -56,86 +62,102 @@ export default async function Dashboard() {
   return (
     <>
       <LiveRefresh channel="dashboard" tables={["episodes", "charges", "decisions"]} />
-      <section aria-labelledby="bal" className="flex flex-col gap-4">
-        <h1 id="bal" className="m-0 font-display text-[22px] font-bold">Guarantees</h1>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-[18px]">
-          <div className="a-rise d1 lift box-border flex min-h-[200px] flex-col justify-between gap-2.5 rounded-[14px] border border-ink p-5">
-            <div className="flex justify-between text-xs">
-              <span>{open.length} open {open.length === 1 ? "episode" : "episodes"}</span>
-              <span className="text-muted">Held in the contract</span>
-            </div>
-            <div className="flex flex-col gap-2">
-              <span className="text-[13px] text-muted">Funds held for treatment</span>
-              <strong className="font-mono text-[26px] font-semibold tracking-[-0.02em]"><Money value={heldTotal} /></strong>
-              {open.length === 0 && <span className="text-xs text-muted">Appears once payers fund an episode.</span>}
-            </div>
-          </div>
+      <PageHeader
+        title={`${greeting()}, ${s.provider.name}`}
+        subtitle={open.length > 0 ? `${open.length} open ${open.length === 1 ? "episode" : "episodes"}. Every charge is reviewed by the agent within seconds.` : "Create an episode from a patient's quote to get started."}
+        actions={
+          <>
+            <ButtonLink href="/provider/prices" variant="secondary">Price list</ButtonLink>
+            <ButtonLink href="/provider/episodes/new">New episode</ButtonLink>
+          </>
+        }
+      />
 
-          <div className="a-rise d2 lift relative box-border flex min-h-[200px] flex-col justify-between gap-2.5 overflow-hidden rounded-[14px] bg-inv p-5 text-inv-ink">
-            <span className="text-xs">All episodes</span>
-            <div className="flex flex-col gap-2">
-              <span className="text-[13px] text-inv-muted">Paid to you</span>
-              <strong className="font-mono text-[26px] font-semibold tracking-[-0.02em]">{formatMoney(paidTotal)}</strong>
-              <span className="text-xs text-inv-muted">Each approved charge is paid in seconds.</span>
-            </div>
+      <section aria-label="Totals" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="a-rise d1 lift flex flex-col justify-between gap-6 rounded-2xl border border-line bg-card p-5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="eyebrow">Held for treatment</span>
+            <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-muted">{open.length} open</span>
           </div>
-
-          {marginCall ? (
-            <Link href={`/provider/episodes/${marginCall.episodeId}`} className="a-rise d3 box-border flex min-h-[200px] flex-col justify-between gap-3.5 rounded-[14px] bg-amber-bg p-[22px] text-amber">
-              <span className="self-start rounded-full border border-current px-2.5 py-[5px] text-xs font-bold">⚠ Margin call · {marginCall.episodeLabel}</span>
-              <strong className="font-display text-[22px] leading-[1.2] font-semibold text-ink">
-                {marginCall.payerRole === "family" ? "Family" : "Coverer"} share is short <Money value={marginCall.amount} />.
-              </strong>
-              <span className="text-sm text-ink">Charges wait until the payer tops up. Open the episode →</span>
-            </Link>
-          ) : (
-            <div className="a-rise d3 box-border flex min-h-[200px] flex-col justify-between gap-3.5 rounded-[14px] border border-line bg-surface p-[22px]">
-              <span className="self-start rounded-full bg-ok-bg px-2.5 py-[5px] text-xs font-bold text-ok">✓ No margin calls</span>
-              <strong className="font-display text-[22px] leading-[1.2] font-semibold">Every open episode has enough funds for its expected cost.</strong>
-              <span className="text-xs text-muted">If funds run short, the agent asks the payer to top up and shows it here.</span>
-            </div>
-          )}
+          <div className="flex flex-col gap-3">
+            <Money value={heldTotal} display className="text-[32px] font-bold" />
+            {heldTotal > 0n ? (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex h-2 gap-[3px] overflow-hidden rounded-full" role="img" aria-label={`Coverer ${share(covererTotal, heldTotal)}%, family ${share(familyTotal, heldTotal)}%`}>
+                  <span className="a-grow bg-strong" style={{ flex: `${share(covererTotal, heldTotal)} 1 0` }} />
+                  <span className="a-grow bg-accent [animation-delay:.2s]" style={{ flex: `${share(familyTotal, heldTotal)} 1 0` }} />
+                </div>
+                <span className="flex justify-between text-xs text-muted">
+                  <span>Coverer <Money value={covererTotal} /></span>
+                  <span>Family <Money value={familyTotal} /></span>
+                </span>
+              </div>
+            ) : (
+              <span className="text-xs text-muted">Appears once payers fund an episode.</span>
+            )}
+          </div>
         </div>
+
+        <div className="a-rise d2 lift flex flex-col justify-between gap-6 rounded-2xl bg-inv p-5 text-inv-ink">
+          <span className="eyebrow !text-inv-muted">Paid to you</span>
+          <div className="flex flex-col gap-2">
+            <span className="amount font-display text-[32px] font-bold tracking-[-0.02em]">
+              {formatAmount(paidTotal)}
+              <span className="ccy !text-inv-muted">USDC</span>
+            </span>
+            <span className="text-xs text-inv-muted">Across all episodes. Each approved charge settles in seconds.</span>
+          </div>
+        </div>
+
+        {marginCall ? (
+          <Link href={`/provider/episodes/${marginCall.episodeId}`} className="a-rise d3 lift flex flex-col justify-between gap-6 rounded-2xl border border-amber/30 bg-amber-bg p-5 sm:col-span-2 xl:col-span-1">
+            <span className="flex items-center justify-between gap-2">
+              <span className="eyebrow !text-amber">⚠ Margin call</span>
+              <span className="text-xs font-semibold text-amber">{marginCall.episodeLabel}</span>
+            </span>
+            <span className="flex flex-col gap-2">
+              <strong className="font-display text-xl leading-snug font-semibold text-ink">
+                {marginCall.payerRole === "family" ? "Family" : "Coverer"} share is short <Money value={marginCall.amount} />
+              </strong>
+              <span className="text-sm text-ink">Charges wait until the payer tops up. <span className="font-semibold text-strong">Open episode →</span></span>
+            </span>
+          </Link>
+        ) : (
+          <div className="a-rise d3 flex flex-col justify-between gap-6 rounded-2xl border border-line bg-surface p-5 sm:col-span-2 xl:col-span-1">
+            <span className="eyebrow">Funds check</span>
+            <span className="flex flex-col gap-2">
+              <strong className="font-display text-xl leading-snug font-semibold">✓ No margin calls</strong>
+              <span className="text-sm text-muted">Every open episode has enough funds for its expected cost.</span>
+            </span>
+          </div>
+        )}
       </section>
 
       <EpisodesTable episodes={data.episodes} />
 
-      <section className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,380px),1fr))] gap-[18px]">
-        <Card title="Funding mix · open episodes">
-          {heldTotal === 0n ? (
-            <p className="m-0 text-sm leading-relaxed text-muted">The split between coverer and family funds appears here once an episode is funded.</p>
-          ) : (
-            <>
-              <div className="flex h-3 gap-[3px] overflow-hidden rounded-full">
-                <span className="a-grow bg-strong" style={{ flex: `${share(covererTotal, heldTotal)} 1 0` }} />
-                <span className="a-grow bg-accent [animation-delay:.25s]" style={{ flex: `${share(familyTotal, heldTotal)} 1 0` }} />
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-[13px]">
-                <div className="flex flex-col gap-1"><span className="text-muted">Coverer · {share(covererTotal, heldTotal)}%</span><strong><Money value={covererTotal} /></strong></div>
-                <div className="flex flex-col gap-1"><span className="text-muted">Family · {share(familyTotal, heldTotal)}%</span><strong><Money value={familyTotal} /></strong></div>
-              </div>
-            </>
-          )}
-        </Card>
-
-        <Card title="Agent decisions">
-          {data.decisions.length === 0 ? (
-            <p className="m-0 text-sm leading-relaxed text-muted">Every decision the agent makes (sizing, paying, escalating, discharging) appears here with its reason and a link to Arc.</p>
-          ) : (
-            <ol className="m-0 flex list-none flex-col gap-2.5 p-0">
-              {data.decisions.map((d, i) => (
-                <li key={d.id} className="a-in flex items-baseline gap-3 text-[13px]" style={{ animationDelay: `${0.3 + i * 0.1}s` }}>
-                  <time className="w-12 flex-none font-mono text-muted" dateTime={d.createdAt}>
+      <Card title="Agent decisions" aside={<span className="text-xs text-muted">Latest {data.decisions.length}</span>}>
+        {data.decisions.length === 0 ? (
+          <p className="m-0 text-sm leading-relaxed text-muted">Every decision the agent makes (sizing, paying, escalating, discharging) appears here with its reason and a link to Arc.</p>
+        ) : (
+          <ol className="m-0 flex list-none flex-col divide-y divide-line p-0">
+            {data.decisions.map((d) => {
+              const ep = data.episodes.find((e) => e.id === d.episodeId);
+              return (
+                <li key={d.id} className="flex items-start gap-4 py-3 text-sm first:pt-0 last:pb-0">
+                  <time className="w-11 flex-none pt-px text-xs font-semibold text-muted tabular-nums" dateTime={d.createdAt}>
                     {new Date(d.createdAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
                   </time>
-                  <Link href={`/provider/episodes/${d.episodeId}`} className="hover-link flex-auto">{d.reason}</Link>
-                  <TxLink hash={d.txHash} label="" />
+                  <Link href={`/provider/episodes/${d.episodeId}`} className="hover-link min-w-0 flex-1">
+                    {ep && <span className="mr-2 text-xs font-semibold text-muted">#{ep.contractEpisodeId?.toString()} {ep.patientLabel}</span>}
+                    {d.reason}
+                  </Link>
+                  <span className="hidden flex-none sm:block"><TxLink hash={d.txHash} label="Arc" /></span>
                 </li>
-              ))}
-            </ol>
-          )}
-        </Card>
-      </section>
+              );
+            })}
+          </ol>
+        )}
+      </Card>
 
       {payerEpisodes.length > 0 && <PayerEpisodes rows={payerEpisodes} />}
     </>
@@ -151,20 +173,23 @@ function PayerEpisodes({ rows }: { rows: Awaited<ReturnType<typeof getPayerEpiso
         </EmptyState>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
-          {rows.map((r) => (
-            <li key={r.episodes.id}>
-              <Link href={`/pay/${r.episodes.id}`} className="lift flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-line p-4">
-                <span className="flex flex-col gap-0.5">
-                  <strong className="text-sm">{r.episodes.providers.name} · for {r.episodes.patient_label}</strong>
-                  <span className="text-xs text-muted">You pay {r.role === "coverer" ? "covered items" : "everything not covered"}</span>
-                </span>
-                <span className="flex items-center gap-3">
-                  <Money value={BigInt(String(r.owed_usdc)) - BigInt(String(r.funded_usdc)) > 0n ? BigInt(String(r.owed_usdc)) - BigInt(String(r.funded_usdc)) : 0n} className="text-sm" />
-                  <StatusPill status={r.episodes.status} />
-                </span>
-              </Link>
-            </li>
-          ))}
+          {rows.map((r) => {
+            const left = toUnits(r.owed_usdc) - toUnits(r.funded_usdc);
+            return (
+              <li key={r.episodes.id}>
+                <Link href={`/pay/${r.episodes.id}`} className="lift flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line p-4">
+                  <span className="flex flex-col gap-0.5">
+                    <strong className="text-sm">{r.episodes.providers.name} · for {r.episodes.patient_label}</strong>
+                    <span className="text-xs text-muted">You pay {r.role === "coverer" ? "covered items" : "everything not covered"}</span>
+                  </span>
+                  <span className="flex items-center gap-3">
+                    {left > 0n && <span className="text-sm">To fund <Money value={left} className="font-semibold" /></span>}
+                    <StatusPill status={r.episodes.status} />
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Card>
